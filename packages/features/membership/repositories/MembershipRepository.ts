@@ -121,6 +121,18 @@ export class MembershipRepository {
     return teamMemberIds;
   }
 
+  async findPendingInvitesForUser({ userId }: { userId: number }) {
+    return this.prismaClient.membership.findMany({
+      where: { userId, accepted: false },
+      select: {
+        role: true,
+        team: {
+          select: { id: true, name: true, slug: true },
+        },
+      },
+    });
+  }
+
   static async create(data: IMembership) {
     return await prisma.membership.create({
       data: {
@@ -621,6 +633,52 @@ export class MembershipRepository {
     });
 
     return membership?.accepted ?? false;
+  }
+
+  /**
+   * Flips a pending invite to accepted. Callers must have already verified that
+   * `userId` is the invitee (see TeamService.acceptInvite) - this method does no authorization.
+   */
+  async acceptInvite({ userId, teamId }: { userId: number; teamId: number }): Promise<Membership> {
+    return this.prismaClient.membership.update({
+      where: {
+        userId_teamId: { userId, teamId },
+      },
+      data: { accepted: true },
+    });
+  }
+
+  /** Callers must authorize the caller first (see TeamService.assertIsTeamAdmin) - this method does no authorization. */
+  async updateRole({
+    userId,
+    teamId,
+    role,
+  }: {
+    userId: number;
+    teamId: number;
+    role: MembershipRole;
+  }): Promise<Membership> {
+    return this.prismaClient.membership.update({
+      where: {
+        userId_teamId: { userId, teamId },
+      },
+      data: { role },
+    });
+  }
+
+  /** Callers must authorize the caller first (see TeamService.assertIsTeamAdmin) - this method does no authorization. */
+  async delete({ userId, teamId }: { userId: number; teamId: number }): Promise<Membership> {
+    return this.prismaClient.membership.delete({
+      where: {
+        userId_teamId: { userId, teamId },
+      },
+    });
+  }
+
+  async countByTeamIdAndRole({ teamId, role }: { teamId: number; role: MembershipRole }): Promise<number> {
+    return this.prismaClient.membership.count({
+      where: { teamId, role, accepted: true },
+    });
   }
 
   static async hasPendingInviteByUserId({ userId }: { userId: number }): Promise<boolean> {

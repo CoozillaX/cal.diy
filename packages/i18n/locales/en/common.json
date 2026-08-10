@@ -827,6 +827,7 @@
   "admin_user_created_description": "You have already created an administrator user. You can now log in to your account.",
   "new_member": "New member",
   "invite": "Invite",
+  "invite_sent": "Invitation sent",
   "add_team_members": "Add team members",
   "add_org_members": "Add members",
   "add_team_members_description": "Invite others to join your team",
