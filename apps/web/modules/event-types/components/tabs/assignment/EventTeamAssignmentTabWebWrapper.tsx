@@ -5,7 +5,8 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { MembershipRole, SchedulingType } from "@calcom/prisma/enums";
 import { Avatar } from "@calcom/ui/components/avatar";
 import { Badge } from "@calcom/ui/components/badge";
-import { Checkbox, SelectField, Switch } from "@calcom/ui/components/form";
+import { Button } from "@calcom/ui/components/button";
+import { Checkbox, SelectField } from "@calcom/ui/components/form";
 import { Controller, useFormContext } from "react-hook-form";
 import type { EventTypeSetup, TeamMembers } from "../../EventType";
 
@@ -29,7 +30,6 @@ const EventTeamAssignmentTabWebWrapper = ({
   const formMethods = useFormContext<FormValues>();
 
   const schedulingType = formMethods.watch("schedulingType") ?? eventType.schedulingType;
-  const assignAllTeamMembers = formMethods.watch("assignAllTeamMembers") ?? eventType.assignAllTeamMembers;
   const hosts = formMethods.watch("hosts") ?? [];
   const selectedUserIds = new Set(hosts.map((host) => host.userId));
 
@@ -64,6 +64,21 @@ const EventTeamAssignmentTabWebWrapper = ({
     formMethods.setValue("hosts", nextHosts, { shouldDirty: true });
   };
 
+  // One-shot client-side action, not a persisted setting: checks every current team member as a
+  // host right now. Whoever it selected is just a normal, editable host list from that point on -
+  // there's no ongoing "keep this synced to the team" promise to keep, so nothing can drift out of
+  // sync with what the toggle implies the way a saved flag could.
+  const selectAllMembers = () => {
+    const nextHosts: Host[] = teamMembers.map((member) => ({
+      userId: member.id,
+      isFixed: schedulingType === SchedulingType.COLLECTIVE,
+      priority: DEFAULT_HOST_PRIORITY,
+      weight: DEFAULT_HOST_WEIGHT,
+      groupId: null,
+    }));
+    formMethods.setValue("hosts", nextHosts, { shouldDirty: true });
+  };
+
   return (
     <div className="stack-y-6">
       <Controller
@@ -90,21 +105,18 @@ const EventTeamAssignmentTabWebWrapper = ({
         )}
       />
 
-      <div>
-        <Switch
-          label={t("assign_all_team_members")}
-          checked={!!assignAllTeamMembers}
-          onCheckedChange={(checked) => {
-            // The server materializes Host rows for every team member on save (see
-            // update.handler.ts) and preserves each member's existing host settings
-            // (isFixed/priority/weight/scheduleId) when doing so - nothing to clear here.
-            formMethods.setValue("assignAllTeamMembers", checked, { shouldDirty: true });
-          }}
-        />
-        <p className="text-subtle mt-1 text-sm">{t("assign_all_team_members_description")}</p>
-      </div>
-
       <div className="border-subtle rounded-lg border">
+        <div className="border-subtle flex items-center justify-between border-b px-4 py-3">
+          <p className="text-emphasis text-sm font-medium">{t("hosts")}</p>
+          <Button
+            type="button"
+            color="secondary"
+            size="sm"
+            disabled={teamMembers.length === 0}
+            onClick={selectAllMembers}>
+            {t("assign_all_team_members")}
+          </Button>
+        </div>
         {teamMembers.length === 0 && <p className="text-subtle p-4 text-sm">{t("no_members_found")}</p>}
         {teamMembers.map((member, index) => (
           <div
@@ -113,8 +125,7 @@ const EventTeamAssignmentTabWebWrapper = ({
               index === teamMembers.length - 1 ? "" : "border-subtle border-b"
             }`}>
             <Checkbox
-              checked={assignAllTeamMembers || selectedUserIds.has(member.id)}
-              disabled={!!assignAllTeamMembers}
+              checked={selectedUserIds.has(member.id)}
               onCheckedChange={(checked) => toggleHost(member.id, !!checked)}
             />
             <Avatar size="sm" imageSrc={member.avatar} alt={member.name ?? member.email} />
@@ -127,9 +138,7 @@ const EventTeamAssignmentTabWebWrapper = ({
         ))}
       </div>
 
-      {!assignAllTeamMembers && hosts.length === 0 && (
-        <p className="text-error text-sm">{t("no_hosts_selected_warning")}</p>
-      )}
+      {hosts.length === 0 && <p className="text-error text-sm">{t("no_hosts_selected_warning")}</p>}
     </div>
   );
 };
