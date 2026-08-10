@@ -41,4 +41,6 @@ export enum ErrorCode {
   BookerEmailRequiresLogin = "booker_email_requires_login",
   InvalidVerificationCode = "invalid_verification_code",
   UnableToValidateVerificationCode = "unable_to_validate_verification_code",
+  TeamNotFound = "team_not_found_error",
+  TeamSlugTaken = "team_slug_taken_error",
 }
