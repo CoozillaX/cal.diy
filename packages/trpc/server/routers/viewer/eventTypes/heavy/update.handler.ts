@@ -453,24 +453,46 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
 
   let hostLocationDeletions: { userId: number; eventTypeId: number }[] = [];
 
-  if (teamId && hosts) {
+  // assignAllTeamMembers materializes real Host rows for every accepted team member instead of
+  // just persisting a flag - that keeps a single source of truth (Host rows) that availability,
+  // the booker profile, and every other consumer already know how to read, rather than requiring
+  // each of them to special-case the flag and re-derive the pool themselves.
+  let resolvedHosts = hosts;
+  if (teamId && assignAllTeamMembers) {
+    const acceptedMemberIds = (eventType.team?.members ?? [])
+      .filter((member) => member.accepted)
+      .map((member) => member.user.id);
+    const existingHostByUserId = new Map((hosts ?? []).map((host) => [host.userId, host]));
+    resolvedHosts = acceptedMemberIds.map(
+      (userId) =>
+        existingHostByUserId.get(userId) ?? {
+          userId,
+          isFixed: false,
+          priority: 2,
+          weight: 100,
+          groupId: null,
+        }
+    );
+  }
+
+  if (teamId && resolvedHosts) {
     // check if all hosts can be assigned (memberships that have accepted invite)
     const teamMemberIds = await membershipRepo.listAcceptedTeamMemberIds({ teamId });
     const teamMemberIdSet = new Set(teamMemberIds);
-    if (!hosts.every((host) => teamMemberIdSet.has(host.userId)) && !eventType.team?.parentId) {
+    if (!resolvedHosts.every((host) => teamMemberIdSet.has(host.userId)) && !eventType.team?.parentId) {
       throw new TRPCError({
         code: "FORBIDDEN",
       });
     }
 
     const oldHostsSet = new Set(eventType.hosts.map((oldHost) => oldHost.userId));
-    const newHostsSet = new Set(hosts.map((oldHost) => oldHost.userId));
+    const newHostsSet = new Set(resolvedHosts.map((oldHost) => oldHost.userId));
 
-    const existingHosts = hosts.filter((newHost) => oldHostsSet.has(newHost.userId));
+    const existingHosts = resolvedHosts.filter((newHost) => oldHostsSet.has(newHost.userId));
     hostLocationDeletions = existingHosts
       .filter((host) => host.location === null)
       .map((host) => ({ userId: host.userId, eventTypeId: id }));
-    const newHosts = hosts.filter((newHost) => !oldHostsSet.has(newHost.userId));
+    const newHosts = resolvedHosts.filter((newHost) => !oldHostsSet.has(newHost.userId));
     const removedHosts = eventType.hosts.filter((oldHost) => !newHostsSet.has(oldHost.userId));
 
     data.hosts = {
@@ -754,7 +776,7 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
   });
 
   // Clean up empty host groups
-  if (hostGroups !== undefined || hosts) {
+  if (hostGroups !== undefined || resolvedHosts) {
     await ctx.prisma.hostGroup.deleteMany({
       where: {
         eventTypeId: id,
