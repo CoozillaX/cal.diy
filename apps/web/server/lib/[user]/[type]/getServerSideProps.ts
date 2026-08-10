@@ -28,7 +28,7 @@ type Props = {
   orgBannerUrl: null;
 };
 
-async function processReschedule({
+export async function processReschedule({
   props,
   rescheduleUid,
   session,
@@ -87,7 +87,7 @@ async function processReschedule({
   };
 }
 
-async function processSeatedEvent({
+export async function processSeatedEvent({
   props,
   bookingUid,
   allowRescheduleForCancelledBooking,
