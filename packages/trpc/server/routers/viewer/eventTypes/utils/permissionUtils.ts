@@ -1,10 +1,5 @@
 import { MembershipRole } from "@calcom/prisma/enums";
 
-const getResourcePermissions = async (..._args: unknown[]) => ({
-  canCreate: true, canEdit: true, canDelete: true, canRead: true
-});
-const Resource = { EventType: 'EventType' } as const;
-
 export interface TeamPermissions {
   canCreate: boolean;
   canEdit: boolean;
@@ -34,47 +29,18 @@ export function getEffectiveRole(
   return orgMembership && hasHigherPrivilege(orgMembership, membershipRole) ? orgMembership : membershipRole;
 }
 
+/**
+ * Cal.diy has no PBAC (packages/features/pbac was removed - see agents/rules/README.md's rule
+ * index and the fork's own removal commit), so team permissions are decided purely by
+ * `effectiveRole`. `userId`/`teamId` are kept in the signature since callers already resolved
+ * `effectiveRole` from a real Membership row for this exact (userId, teamId) pair.
+ */
 export async function getTeamPermissions(
-  userId: number,
-  teamId: number,
+  _userId: number,
+  _teamId: number,
   effectiveRole: MembershipRole
 ): Promise<TeamPermissions> {
-  try {
-    const permissions = await getResourcePermissions({
-      userId,
-      teamId,
-      resource: Resource.EventType,
-      userRole: effectiveRole,
-      fallbackRoles: {
-        read: {
-          roles: [MembershipRole.ADMIN, MembershipRole.OWNER, MembershipRole.MEMBER],
-        },
-        create: {
-          roles: [MembershipRole.ADMIN, MembershipRole.OWNER],
-        },
-        update: {
-          roles: [MembershipRole.ADMIN, MembershipRole.OWNER],
-        },
-        delete: {
-          roles: [MembershipRole.ADMIN, MembershipRole.OWNER],
-        },
-      },
-    });
-
-    return {
-      canCreate: permissions.canCreate,
-      canEdit: permissions.canEdit,
-      canDelete: permissions.canDelete,
-      canRead: permissions.canRead,
-    };
-  } catch (error) {
-    console.warn(
-      `PBAC check failed for user ${userId} on team ${teamId}, falling back to role check:`,
-      error
-    );
-
-    return getFallbackPermissions(effectiveRole);
-  }
+  return getFallbackPermissions(effectiveRole);
 }
 
 function getFallbackPermissions(role: MembershipRole): TeamPermissions {
