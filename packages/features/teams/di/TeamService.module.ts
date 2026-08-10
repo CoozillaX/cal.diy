@@ -1,4 +1,5 @@
 import { bindModuleToClassOnToken, createModule, type ModuleLoader } from "@calcom/features/di/di";
+import { moduleLoader as userRepositoryModuleLoader } from "@calcom/features/di/modules/User";
 import { TeamService } from "@calcom/features/teams/services/TeamService";
 import { moduleLoader as membershipRepositoryModuleLoader } from "@calcom/features/users/di/MembershipRepository.module";
 import { moduleLoader as teamRepositoryModuleLoader } from "./TeamRepository.module";
@@ -16,6 +17,7 @@ const loadModule = bindModuleToClassOnToken({
   depsMap: {
     teamRepository: teamRepositoryModuleLoader,
     membershipRepository: membershipRepositoryModuleLoader,
+    userRepository: userRepositoryModuleLoader,
   },
 });
 

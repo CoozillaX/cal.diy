@@ -1,6 +1,9 @@
+import { randomBytes } from "node:crypto";
 import { prisma } from "@calcom/prisma";
 import type { Prisma, PrismaClient } from "@calcom/prisma/client";
 import { MembershipRole } from "@calcom/prisma/enums";
+
+const INVITE_TOKEN_EXPIRY_DAYS = 7;
 
 const teamSelect = {
   id: true,
@@ -82,6 +85,24 @@ export class TeamRepository {
 
       return team;
     });
+  }
+
+  /**
+   * Used to invite an email address with no existing User account. The token is consumed by
+   * the signup flow (see apps/web/app/api/auth/signup/handlers/selfHostedHandler.ts), which
+   * creates the User and the accepted Membership together, then deletes the token.
+   */
+  async createInviteToken({ teamId, email }: { teamId: number; email: string }): Promise<{ token: string }> {
+    const token = randomBytes(32).toString("hex");
+    await this.prismaClient.verificationToken.create({
+      data: {
+        identifier: email.toLowerCase(),
+        token,
+        teamId,
+        expires: new Date(Date.now() + INVITE_TOKEN_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+      },
+    });
+    return { token };
   }
 
   async update({ id, data }: { id: number; data: TeamUpdateData }): Promise<TeamDTO> {
