@@ -913,8 +913,17 @@ const CreateFirstEventTypeView = ({ slug, searchTerm }: { slug: string; searchTe
 const CTA = ({ profileOptions }: { profileOptions: ProfileOption[] }) => {
   const { t } = useLocale();
   const { searchTerm, setSearchTerm } = useSearchContext();
+  // Same `?teamId=` the tab links write (see InfiniteScrollMain).
+  const { data } = useTypedQuery(querySchema);
 
   if (!profileOptions.length) return null;
+
+  // profileOptions is already filtered to profiles the user can create in (see EventTypesCTA).
+  // On the "all"/personal view (no teamId in the URL) default to the first one; on a specific
+  // team tab, only match that exact team - don't silently fall back to a different profile.
+  const activeProfile = data.teamId
+    ? profileOptions.find((profile) => profile.teamId === data.teamId)
+    : profileOptions[0];
 
   return (
     <div className="flex items-center gap-4">
@@ -930,11 +939,15 @@ const CTA = ({ profileOptions }: { profileOptions: ProfileOption[] }) => {
         }}
         placeholder={t("search")}
       />
-      <Button
-        data-testid="new-event-type"
-        href={`?dialog=new&eventPage=${profileOptions[0]?.slug ?? ""}`}>
-        {t("new")}
-      </Button>
+      {activeProfile && (
+        <Button
+          data-testid="new-event-type"
+          href={`?dialog=new&eventPage=${activeProfile.slug ?? ""}${
+            activeProfile.teamId ? `&teamId=${activeProfile.teamId}` : ""
+          }`}>
+          {t("new")}
+        </Button>
+      )}
       <CreateEventTypeDialog profileOptions={profileOptions} />
     </div>
   );

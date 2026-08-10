@@ -1,22 +1,23 @@
-import type { ReactNode } from "react";
-import { useState } from "react";
-import type { UseFormReturn } from "react-hook-form";
-
 import { useIsPlatform } from "@calcom/atoms/hooks/useIsPlatform";
+import type { createEventTypeInput } from "@calcom/features/eventtypes/lib/types";
 import { MAX_EVENT_DURATION_MINUTES, MIN_EVENT_DURATION_MINUTES } from "@calcom/lib/constants";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { md } from "@calcom/lib/markdownIt";
 import slugify from "@calcom/lib/slugify";
 import turndown from "@calcom/lib/turndownService";
+import { SchedulingType } from "@calcom/prisma/enums";
 import { Editor } from "@calcom/ui/components/editor";
-import { Form } from "@calcom/ui/components/form";
-import { TextAreaField } from "@calcom/ui/components/form";
-import { TextField } from "@calcom/ui/components/form";
+import { Form, SelectField, TextAreaField, TextField } from "@calcom/ui/components/form";
 import { Tooltip } from "@calcom/ui/components/tooltip";
+import type { ReactNode } from "react";
+import { useState } from "react";
+import type { UseFormReturn } from "react-hook-form";
+import { Controller } from "react-hook-form";
 import type { z } from "zod";
-import { createEventTypeInput } from "@calcom/features/eventtypes/lib/types";
 
 type CreateEventTypeFormValues = z.infer<typeof createEventTypeInput>;
+
+const TEAM_SCHEDULING_TYPES = [SchedulingType.ROUND_ROBIN, SchedulingType.COLLECTIVE] as const;
 
 export default function CreateEventTypeForm({
   form,
@@ -25,6 +26,7 @@ export default function CreateEventTypeForm({
   pageSlug,
   isPending,
   urlPrefix,
+  teamId,
   SubmitButton,
 }: {
   form: UseFormReturn<CreateEventTypeFormValues>;
@@ -33,11 +35,21 @@ export default function CreateEventTypeForm({
   pageSlug?: string;
   isPending: boolean;
   urlPrefix?: string;
+  /** When set, this is a team event type and a scheduling type must be chosen (see createEventTypeInput's refine). */
+  teamId?: number | null;
   SubmitButton: (isPending: boolean) => ReactNode;
 }) {
   const isPlatform = useIsPlatform();
   const { t } = useLocale();
   const [firstRender, setFirstRender] = useState(true);
+
+  const schedulingTypeOptions = TEAM_SCHEDULING_TYPES.map((value) => ({
+    value,
+    label: t(value === SchedulingType.ROUND_ROBIN ? "round_robin" : "collective"),
+    description: t(
+      value === SchedulingType.ROUND_ROBIN ? "round_robin_description" : "collective_description"
+    ),
+  }));
 
   const { register } = form;
   return (
@@ -110,6 +122,22 @@ export default function CreateEventTypeForm({
               <p className="mt-2 text-sm text-gray-600">{t("managed_event_url_clarification")}</p>
             )}
           </div>
+        )}
+        {!!teamId && (
+          <Controller
+            name="schedulingType"
+            control={form.control}
+            render={({ field: { value, onChange }, fieldState: { error } }) => (
+              <SelectField
+                required
+                label={t("scheduling_type")}
+                options={schedulingTypeOptions}
+                value={schedulingTypeOptions.find((option) => option.value === value)}
+                onChange={(option) => onChange(option?.value ?? null)}
+                error={error?.message}
+              />
+            )}
+          />
         )}
         <>
           {isPlatform ? (

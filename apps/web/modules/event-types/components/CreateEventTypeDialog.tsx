@@ -1,3 +1,4 @@
+import process from "node:process";
 import { Dialog } from "@calcom/features/components/controlled-dialog";
 import CreateEventTypeForm from "@calcom/features/eventtypes/components/CreateEventTypeForm";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
@@ -11,6 +12,7 @@ import { DialogClose, DialogContent, DialogFooter } from "@calcom/ui/components/
 import { showToast } from "@calcom/ui/components/toast";
 import { isValidPhoneNumber } from "libphonenumber-js/max";
 import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { z } from "zod";
 import { useCreateEventType } from "~/event-types/hooks/useCreateEventType";
 
@@ -103,6 +105,12 @@ export function CreateEventTypeDialog({ profileOptions }: { profileOptions: Prof
 
   const { form, createMutation, isManagedEventType } = useCreateEventType(onSuccessMutation, onErrorMutation);
 
+  // teamId isn't a user-editable field on this form - sync it from the query param so
+  // createEventTypeInput's refine (schedulingType required when teamId is set) has what it needs.
+  useEffect(() => {
+    form.setValue("teamId", teamId ?? null);
+  }, [teamId, form]);
+
   const urlPrefix = WEBSITE_URL;
 
   return (
@@ -114,19 +122,22 @@ export function CreateEventTypeDialog({ profileOptions }: { profileOptions: Prof
         enableOverflow
         title={teamId ? t("add_new_team_event_type") : t("add_new_event_type")}
         description={t("new_event_type_to_book_description")}>
-        {teamId ? null : (
-          <CreateEventTypeForm
-            urlPrefix={urlPrefix}
-            isPending={createMutation.isPending}
-            form={form}
-            isManagedEventType={isManagedEventType}
-            handleSubmit={(values) => {
-              createMutation.mutate(values);
-            }}
-            SubmitButton={SubmitButton}
-            pageSlug={pageSlug}
-          />
-        )}
+        <CreateEventTypeForm
+          urlPrefix={urlPrefix}
+          isPending={createMutation.isPending}
+          form={form}
+          isManagedEventType={isManagedEventType}
+          teamId={teamId}
+          handleSubmit={(values) => {
+            if (teamId && !permissions.canCreateEventType) {
+              showToast(t("error_event_type_unauthorized_create"), "error");
+              return;
+            }
+            createMutation.mutate(values);
+          }}
+          SubmitButton={SubmitButton}
+          pageSlug={teamProfile?.slug ?? pageSlug}
+        />
       </DialogContent>
     </Dialog>
   );
