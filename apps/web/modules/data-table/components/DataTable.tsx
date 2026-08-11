@@ -105,6 +105,10 @@ export function DataTable<TData>({
   }, [virtualItemsCount, rows.length, tableContainerRef.current, paginationMode, onScroll]);
 
   const columnSizingVars = useColumnSizingVars({ table });
+  // table.getTotalSize() sums each column's tracked pixel size, which an autoWidth column never
+  // gets (its width is native flex-grow, not tracked state) - forcing that sum as the table's own
+  // width would clip the table down to the other columns' sizes instead of filling the container.
+  const hasAutoWidthColumn = table.getVisibleFlatColumns().some((column) => column.columnDef.meta?.autoWidth);
 
   useColumnResizing({
     enabled: Boolean(enableColumnResizing),
@@ -149,12 +153,12 @@ export function DataTable<TData>({
         style={{ gridArea: "body" }}>
         <TableNew
           className={classNames(
-            "data-table grid border-0",
+            "data-table grid w-full border-0",
             !hasWrapperContext && "bg-cal-muted rounded-xl px-0.5 pb-0.5"
           )}
           style={{
             ...columnSizingVars,
-            ...(Boolean(enableColumnResizing) && { width: table.getTotalSize() }),
+            ...(Boolean(enableColumnResizing) && !hasAutoWidthColumn && { width: table.getTotalSize() }),
           }}>
           <TableHeader className={classNames("sticky top-0 z-10", headerClassName)}>
             {table.getHeaderGroups().map((headerGroup: HeaderGroup<TData>) => (
@@ -171,7 +175,10 @@ export function DataTable<TData>({
                       }}
                       className={classNames(
                         "relative flex items-center",
-                        column.columnDef.meta?.autoWidth ? "grow" : "shrink-0",
+                        // flex-1 (basis:0) rather than grow (basis:auto) - Safari doesn't reliably
+                        // re-measure a content-driven basis on window resize, so a column sized off
+                        // wrapped text can get stuck at its narrow-viewport height.
+                        column.columnDef.meta?.autoWidth ? "min-w-0 flex-1" : "shrink-0",
                         "bg-cal-muted",
                         column.getIsPinned() && "top-0 z-20 sm:sticky"
                       )}>
@@ -360,7 +367,7 @@ function DataTableBody<TData>({
 
   return (
     <TableBody
-      className="border-muted relative grid border-t"
+      className="border-muted relative grid w-full border-t"
       data-testid={testId}
       style={{ height: tableHeight }}>
       {rowsToRender.map(({ row, virtualItem }) => {
@@ -408,10 +415,10 @@ function DataTableBody<TData>({
             }}
             style={{
               display: "flex",
+              width: "100%",
               ...(virtualItem && {
                 position: "absolute",
                 transform: `translateY(${virtualItem.start}px)`,
-                width: "100%",
               }),
             }}
             className={classNames(onRowMouseclick && "hover:cursor-pointer", "group", computedRowClassName)}>
@@ -427,7 +434,9 @@ function DataTableBody<TData>({
                     width: `var(--col-${kebabCase(cell.column.id)}-size)`,
                   }}
                   className={classNames(
-                    "bg-default group-hover:!bg-cal-muted group-data-[state=selected]:bg-subtle flex shrink-0 items-center overflow-hidden",
+                    "bg-default group-hover:!bg-cal-muted group-data-[state=selected]:bg-subtle flex items-center overflow-hidden",
+                    // flex-1 (basis:0), not grow (basis:auto) - see TableHead above for why.
+                    column.columnDef.meta?.autoWidth ? "min-w-0 flex-1" : "shrink-0",
                     variant === "compact" && "p-0",
                     column.getIsPinned() &&
                       "bg-default group-hover:!bg-cal-muted group-data-[state=selected]:bg-subtle sm:sticky"

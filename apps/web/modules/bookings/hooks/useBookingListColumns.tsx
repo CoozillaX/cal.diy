@@ -5,7 +5,6 @@ import type useMeQuery from "@calcom/trpc/react/hooks/useMeQuery";
 import BookingListItem from "@calcom/web/components/booking/BookingListItem";
 import { createColumnHelper } from "@tanstack/react-table";
 import { useMemo } from "react";
-
 import type { BookingListingStatus, RowData } from "../types";
 
 export function useBookingListColumns({
@@ -119,6 +118,9 @@ export function useBookingListColumns({
       }),
       columnHelper.display({
         id: "customView",
+        // This is the only visible column - it should always fill the row rather than track a
+        // debounced pixel width, so the list keeps up with the container as the browser resizes.
+        meta: { autoWidth: true },
         cell: (props) => {
           const row = props.row.original;
 
