@@ -1,6 +1,5 @@
 "use client";
 
-import SettingsHeader from "@calcom/features/settings/appDir/SettingsHeader";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { MembershipRole } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
@@ -17,14 +16,22 @@ import MemberListItem from "~/settings/teams/components/MemberListItem";
 
 const ADMIN_ROLES: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMIN];
 
+const useCanManage = (teamId: number) => {
+  const { data: sessionData } = useSession();
+  const { data: members } = trpc.viewer.teams.listMembers.useQuery({ teamId });
+  const currentUserId = sessionData?.user?.id;
+  const currentUserMembership = members?.find((member) => member.user.id === currentUserId);
+  return !!currentUserMembership && ADMIN_ROLES.includes(currentUserMembership.role);
+};
+
+/** Content only - the page (rendered inside the main app shell, not the settings shell)
+ * owns the heading and renders MembersCTA separately as the shell's CTA slot. */
 const MembersView = ({ teamId }: { teamId: number }) => {
   const { t } = useLocale();
   const router = useRouter();
   const { data: sessionData } = useSession();
-  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 
-  const { data: team } = trpc.viewer.teams.get.useQuery({ teamId });
   const { data: members, isPending } = trpc.viewer.teams.listMembers.useQuery({ teamId });
 
   const currentUserId = sessionData?.user?.id;
@@ -32,7 +39,7 @@ const MembersView = ({ teamId }: { teamId: number }) => {
   const canManage = !!currentUserMembership && ADMIN_ROLES.includes(currentUserMembership.role);
   const isOwner = currentUserMembership?.role === MembershipRole.OWNER;
 
-  const goToTeamsList = () => router.push("/settings/teams");
+  const goToTeamsList = () => router.push("/teams");
 
   const deleteMutation = trpc.viewer.teams.delete.useMutation({
     onSuccess: goToTeamsList,
@@ -45,17 +52,7 @@ const MembersView = ({ teamId }: { teamId: number }) => {
   });
 
   return (
-    <SettingsHeader
-      title={team?.name ?? t("members")}
-      description={t("add_team_members_description")}
-      borderInShellHeader={false}
-      CTA={
-        canManage && (
-          <Button color="primary" StartIcon="plus" onClick={() => setInviteDialogOpen(true)}>
-            {t("invite")}
-          </Button>
-        )
-      }>
+    <>
       {isPending && (
         <SkeletonContainer>
           <SkeletonText className="mb-4 h-8 w-full" />
@@ -97,8 +94,6 @@ const MembersView = ({ teamId }: { teamId: number }) => {
         </div>
       )}
 
-      <InviteMemberDialog teamId={teamId} open={inviteDialogOpen} onOpenChange={setInviteDialogOpen} />
-
       <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
         <ConfirmationDialogContent
           variety="danger"
@@ -118,7 +113,24 @@ const MembersView = ({ teamId }: { teamId: number }) => {
           </p>
         </ConfirmationDialogContent>
       </Dialog>
-    </SettingsHeader>
+    </>
+  );
+};
+
+export const MembersCTA = ({ teamId }: { teamId: number }) => {
+  const { t } = useLocale();
+  const canManage = useCanManage(teamId);
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+
+  if (!canManage) return null;
+
+  return (
+    <>
+      <Button color="primary" StartIcon="plus" onClick={() => setInviteDialogOpen(true)}>
+        {t("invite")}
+      </Button>
+      <InviteMemberDialog teamId={teamId} open={inviteDialogOpen} onOpenChange={setInviteDialogOpen} />
+    </>
   );
 };
 

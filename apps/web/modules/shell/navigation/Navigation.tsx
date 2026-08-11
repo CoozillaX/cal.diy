@@ -31,7 +31,7 @@ const getNavigationItems = (): NavigationItemType[] => [
   },
   {
     name: "teams",
-    href: "/settings/teams",
+    href: "/teams",
     icon: "users",
     moreOnMobile: true,
   },

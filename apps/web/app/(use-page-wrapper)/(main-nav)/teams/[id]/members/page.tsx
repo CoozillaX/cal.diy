@@ -2,10 +2,11 @@ import { getServerSession } from "@calcom/features/auth/lib/getServerSession";
 import prisma from "@calcom/prisma";
 import { buildLegacyRequest } from "@lib/buildLegacyCtx";
 import type { PageProps } from "app/_types";
-import { _generateMetadata } from "app/_utils";
+import { _generateMetadata, getTranslate } from "app/_utils";
 import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import MembersView from "~/settings/teams/members-view";
+import MembersView, { MembersCTA } from "~/settings/teams/members-view";
+import { ShellMainAppDir } from "../../../ShellMainAppDir";
 
 export const generateMetadata = async ({ params }: { params: Promise<{ id: string }> }) =>
   await _generateMetadata(
@@ -13,13 +14,13 @@ export const generateMetadata = async ({ params }: { params: Promise<{ id: strin
     (t) => t("add_team_members_description"),
     undefined,
     undefined,
-    `/settings/teams/${(await params).id}/members`
+    `/teams/${(await params).id}/members`
   );
 
 const Page = async ({ params: _params }: PageProps) => {
   const session = await getServerSession({ req: buildLegacyRequest(await headers(), await cookies()) });
   if (!session?.user?.id) {
-    return redirect("/auth/login?callbackUrl=/settings/teams");
+    return redirect("/auth/login?callbackUrl=/teams");
   }
 
   const params = await _params;
@@ -37,7 +38,17 @@ const Page = async ({ params: _params }: PageProps) => {
     notFound();
   }
 
-  return <MembersView teamId={teamId} />;
+  const t = await getTranslate();
+
+  return (
+    <ShellMainAppDir
+      heading={t("members")}
+      subtitle={t("add_team_members_description")}
+      backPath="/teams"
+      CTA={<MembersCTA teamId={teamId} />}>
+      <MembersView teamId={teamId} />
+    </ShellMainAppDir>
+  );
 };
 
 export default Page;

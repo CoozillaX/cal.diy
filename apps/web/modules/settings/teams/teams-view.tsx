@@ -1,6 +1,5 @@
 "use client";
 
-import SettingsHeader from "@calcom/features/settings/appDir/SettingsHeader";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Badge } from "@calcom/ui/components/badge";
@@ -10,10 +9,11 @@ import { useState } from "react";
 import CreateTeamDialog from "~/settings/teams/components/CreateTeamDialog";
 import { TeamsTable } from "~/settings/teams/components/TeamsTable";
 
+/** Content only - the page (rendered inside the main app shell, not the settings shell)
+ * owns the heading and renders TeamsCTA separately as the shell's CTA slot. */
 const TeamsView = () => {
   const { t } = useLocale();
   const utils = trpc.useUtils();
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   const { data: teams, isPending: teamsPending } = trpc.viewer.teams.list.useQuery();
   const { data: pendingInvites, isPending: invitesPending } =
@@ -31,15 +31,7 @@ const TeamsView = () => {
   });
 
   return (
-    <SettingsHeader
-      title={t("my_teams")}
-      description={t("add_team_members_description")}
-      borderInShellHeader={false}
-      CTA={
-        <Button color="primary" StartIcon="plus" onClick={() => setCreateDialogOpen(true)}>
-          {t("create_team")}
-        </Button>
-      }>
+    <>
       {!invitesPending && pendingInvites && pendingInvites.length > 0 && (
         <div className="mb-6">
           <h3 className="text-emphasis mb-2 text-sm font-semibold">{t("pending_invites")}</h3>
@@ -68,9 +60,21 @@ const TeamsView = () => {
       )}
 
       <TeamsTable teams={teams ?? []} isPending={teamsPending} />
+    </>
+  );
+};
 
+export const TeamsCTA = () => {
+  const { t } = useLocale();
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  return (
+    <>
+      <Button color="primary" StartIcon="plus" onClick={() => setCreateDialogOpen(true)}>
+        {t("create_team")}
+      </Button>
       <CreateTeamDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
-    </SettingsHeader>
+    </>
   );
 };
 

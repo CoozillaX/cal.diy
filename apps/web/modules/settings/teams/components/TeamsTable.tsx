@@ -71,7 +71,7 @@ const TeamsTableContent = ({ teams, isPending }: { teams: Team[]; isPending: boo
         header: "",
         enableSorting: false,
         cell: ({ row }) => (
-          <Link href={`/settings/teams/${row.original.id}/members`}>
+          <Link href={`/teams/${row.original.id}/members`}>
             <Button type="button" color="secondary" size="sm" StartIcon="users">
               {t("members")}
             </Button>
