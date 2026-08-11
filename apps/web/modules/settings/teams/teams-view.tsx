@@ -5,12 +5,10 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Badge } from "@calcom/ui/components/badge";
 import { Button } from "@calcom/ui/components/button";
-import { EmptyScreen } from "@calcom/ui/components/empty-screen";
-import { SkeletonContainer, SkeletonText } from "@calcom/ui/components/skeleton";
 import { showToast } from "@calcom/ui/components/toast";
-import Link from "next/link";
 import { useState } from "react";
 import CreateTeamDialog from "~/settings/teams/components/CreateTeamDialog";
+import { TeamsTable } from "~/settings/teams/components/TeamsTable";
 
 const TeamsView = () => {
   const { t } = useLocale();
@@ -69,33 +67,7 @@ const TeamsView = () => {
         </div>
       )}
 
-      {teamsPending && (
-        <SkeletonContainer>
-          <SkeletonText className="h-8 w-full" />
-        </SkeletonContainer>
-      )}
-
-      {!teamsPending && teams && teams.length === 0 && (
-        <EmptyScreen Icon="users" headline={t("my_teams")} description={t("add_team_members_description")} />
-      )}
-
-      {!teamsPending && teams && teams.length > 0 && (
-        <div className="border-subtle rounded-lg border">
-          {teams.map((team, index) => (
-            <Link
-              key={team.id}
-              href={`/settings/teams/${team.id}/members`}
-              className={`hover:bg-subtle flex items-center justify-between px-4 py-4 sm:px-6 ${
-                index === teams.length - 1 ? "" : "border-subtle border-b"
-              }`}>
-              <p className="text-emphasis text-sm font-semibold">{team.name}</p>
-              <Button type="button" color="secondary" size="sm" StartIcon="users">
-                {t("members")}
-              </Button>
-            </Link>
-          ))}
-        </div>
-      )}
+      <TeamsTable teams={teams ?? []} isPending={teamsPending} />
 
       <CreateTeamDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
     </SettingsHeader>

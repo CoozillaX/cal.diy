@@ -46,7 +46,14 @@ export class TeamService {
       team: { isOrganization: false },
     });
 
-    return teams.map(({ id, name, slug, logoUrl }) => ({ id, name, slug, logoUrl }));
+    return teams.map(({ id, name, slug, logoUrl, members, _count }) => ({
+      id,
+      name,
+      slug,
+      logoUrl,
+      role: members[0]?.role ?? null,
+      memberCount: _count.members,
+    }));
   }
 
   async updateTeam({ teamId, userId, data }: { teamId: number; userId: number; data: TeamUpdateData }) {

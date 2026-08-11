@@ -558,6 +558,22 @@ export class MembershipRepository {
           },
         },
       },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logoUrl: true,
+        members: {
+          where: { userId },
+          select: { role: true },
+          take: 1,
+        },
+        _count: {
+          select: {
+            members: { where: { accepted: true } },
+          },
+        },
+      },
     });
     return teams;
   }

@@ -128,19 +128,6 @@ const getTabs = (
       ],
     },
     {
-      name: "teams",
-      href: "/settings/teams",
-      icon: "users",
-      children: [
-        {
-          name: "my_teams",
-          href: "/settings/teams",
-          trackingMetadata: { section: "teams", page: "my_teams" },
-        },
-        // Populated per-team in useTabs() below, once the user's teams have loaded.
-      ],
-    },
-    {
       name: "organization",
       href: "/settings/organizations",
       children: [
@@ -291,7 +278,6 @@ const useTabs = ({
 }) => {
   const session = useSession();
   const { data: user } = trpc.viewer.me.get.useQuery({ includePasswordAdded: true });
-  const { data: teams } = trpc.viewer.teams.list.useQuery(undefined, { enabled: !!session.data });
   const orgBranding = null as { id?: number; slug?: string; name?: string; logoUrl?: string | null } | null;
   const isAdmin = session.data?.user.role === UserPermissionRole.ADMIN;
 
@@ -303,17 +289,6 @@ const useTabs = ({
           name: user?.name || "my_account",
           icon: undefined,
           avatar: getUserAvatarUrl(user),
-        };
-      } else if (tab.href === "/settings/teams") {
-        const teamChildren: VerticalTabItemProps[] = (teams ?? []).map((team) => ({
-          name: team.name,
-          href: `/settings/teams/${team.id}/members`,
-          trackingMetadata: { section: "teams", page: "team_members" },
-        }));
-
-        return {
-          ...tab,
-          children: [...(tab.children ?? []), ...teamChildren],
         };
       } else if (tab.href === "/settings/organizations") {
         const newArray = (tab?.children ?? []).filter(
@@ -398,7 +373,7 @@ const useTabs = ({
       if (isAdmin) return true;
       return !adminRequiredKeys.includes(tab.name);
     });
-  }, [isAdmin, orgBranding, user, teams, isDelegationCredentialEnabled, isPbacEnabled, permissions]);
+  }, [isAdmin, orgBranding, user, isDelegationCredentialEnabled, isPbacEnabled, permissions]);
 
   return processTabsMemod;
 };
