@@ -2,6 +2,7 @@
 
 import type { CheckedSelectOption } from "@calcom/features/eventtypes/components/CheckedTeamSelect";
 import { CheckedTeamSelect } from "@calcom/features/eventtypes/components/CheckedTeamSelect";
+import { LearnMoreLink } from "@calcom/features/eventtypes/components/LearnMoreLink";
 import type { EventTypeSetupProps, FormValues, Host } from "@calcom/features/eventtypes/lib/types";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { SchedulingType } from "@calcom/prisma/enums";
@@ -133,7 +134,13 @@ const EventTeamAssignmentTabWebWrapper = ({
               formMethods.setValue("isRRWeightsEnabled", checked, { shouldDirty: true })
             }
           />
-          <p className="text-subtle mt-1 text-sm">{t("weights_description")}</p>
+          <p className="text-subtle mt-1 text-sm">
+            <LearnMoreLink
+              t={t}
+              i18nKey="weights_description"
+              href="https://cal.com/help/how-it-works/round-robin"
+            />
+          </p>
         </div>
       )}
 
