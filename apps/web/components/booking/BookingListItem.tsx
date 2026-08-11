@@ -59,10 +59,13 @@ import { RejectBookingButton } from "./RejectBookingButton";
 import type { BookingItemProps } from "./types";
 
 // Widths shared across this row's Time/Event/Source columns so they stay consistent.
+// All three are plain flex items (not table-cell) - this row is a virtualized flex row, not
+// a real <table>, and mixing display:table-cell into a flex row makes its height calculation
+// browser-dependent, which occasionally blew the row up far taller than its content.
 const COLUMN_CLASSNAMES = {
-  time: "sm:min-w-48 hidden align-top ltr:pl-3 rtl:pr-6 sm:table-cell",
-  event: "hidden sm:block sm:min-w-32 sm:max-w-40 align-top ltr:pl-2 rtl:pr-2",
-  source: "hidden sm:block sm:min-w-32 sm:max-w-40 align-top ltr:pl-2 rtl:pr-2",
+  time: "sm:min-w-48 hidden ltr:pl-3 rtl:pr-6 sm:block",
+  event: "hidden sm:block sm:min-w-32 sm:max-w-40 ltr:pl-2 rtl:pr-2",
+  source: "hidden sm:block sm:min-w-32 sm:max-w-40 ltr:pl-2 rtl:pr-2",
 } as const;
 
 type ParsedBooking = ReturnType<typeof buildParsedBooking>;
