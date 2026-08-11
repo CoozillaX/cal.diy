@@ -58,6 +58,13 @@ import {
 import { RejectBookingButton } from "./RejectBookingButton";
 import type { BookingItemProps } from "./types";
 
+// Shared with BookingListItemHeader below so the header cells line up with the row's columns.
+const COLUMN_CLASSNAMES = {
+  time: "sm:min-w-48 hidden align-top ltr:pl-3 rtl:pr-6 sm:table-cell",
+  event: "hidden sm:block sm:min-w-32 sm:max-w-40 align-top ltr:pl-2 rtl:pr-2",
+  source: "hidden sm:block sm:min-w-32 sm:max-w-40 align-top ltr:pl-2 rtl:pr-2",
+} as const;
+
 type ParsedBooking = ReturnType<typeof buildParsedBooking>;
 type TeamEvent = Ensure<NonNullable<ParsedBooking["eventType"]>, "team">;
 type TeamEventBooking = Omit<ParsedBooking, "eventType"> & {
@@ -286,7 +293,7 @@ function BookingListItem(booking: BookingItemProps) {
           "bg-cal-muted before:bg-brand-default rounded-r-md before:absolute before:left-0 before:top-0 before:h-full before:w-1"
       )}>
       <div className="flex flex-col sm:flex-row">
-        <div className="sm:min-w-48 hidden align-top ltr:pl-3 rtl:pr-6 sm:table-cell">
+        <div className={COLUMN_CLASSNAMES.time}>
           <div className="flex h-full items-center">
             {eventTypeColor && <div className="h-[70%] w-0.5" style={{ backgroundColor: eventTypeColor }} />}
             <ConditionalLink onClick={onClick} bookingLink={bookingLink} className="ml-3">
@@ -474,28 +481,34 @@ function BookingListItem(booking: BookingItemProps) {
             </div>
           </ConditionalLink>
         </div>
-        {(booking.eventType?.title || booking.eventType?.team) && (
-          <div
-            data-testid="booking-source"
-            className="hidden sm:block sm:min-w-32 sm:max-w-40 align-top ltr:pl-2 rtl:pr-2">
+        {booking.eventType?.title && (
+          <div data-testid="booking-event-type" className={COLUMN_CLASSNAMES.event}>
             <ConditionalLink onClick={onClick} bookingLink={bookingLink}>
-              <div className="stack-y-1 cursor-pointer py-4">
-                {booking.eventType?.title && (
-                  <div
-                    className="text-subtle max-w-full truncate text-sm leading-6"
-                    title={booking.eventType.title}>
-                    {booking.eventType.title}
-                  </div>
-                )}
-                {booking.eventType?.team && (
-                  <Badge className="max-w-full" variant="blue" startIcon="users">
-                    <span className="truncate">{booking.eventType.team.name}</span>
-                  </Badge>
-                )}
+              <div className="cursor-pointer py-4">
+                <div
+                  className="text-subtle max-w-full truncate text-sm leading-6"
+                  title={booking.eventType.title}>
+                  {booking.eventType.title}
+                </div>
               </div>
             </ConditionalLink>
           </div>
         )}
+        <div data-testid="booking-source" className={COLUMN_CLASSNAMES.source}>
+          <ConditionalLink onClick={onClick} bookingLink={bookingLink}>
+            <div className="cursor-pointer py-4">
+              {booking.eventType?.team ? (
+                <Badge className="max-w-full" variant="blue" startIcon="users">
+                  <span className="truncate">{booking.eventType.team.name}</span>
+                </Badge>
+              ) : (
+                <Badge className="max-w-full" variant="gray" startIcon="user">
+                  {t("individual")}
+                </Badge>
+              )}
+            </div>
+          </ConditionalLink>
+        </div>
         <div className="flex flex-col flex-wrap items-end justify-end gap-2 py-4 pl-4 text-right text-sm font-medium ltr:pr-4 rtl:pl-4 sm:flex-shrink-0 sm:flex-row sm:flex-nowrap sm:items-start sm:pl-0">
           {shouldShowPendingActions(actionContext) && (
             <div className="flex space-x-2 rtl:space-x-reverse">
@@ -1167,6 +1180,29 @@ const AssignmentReasonTooltip = ({
         {t(badgeTitle)}
       </Badge>
     </Tooltip>
+  );
+};
+
+// Column headers for the desktop row layout above - widths are shared via COLUMN_CLASSNAMES so
+// they stay aligned with BookingListItem's own columns without needing a real <table>.
+export const BookingListItemHeader = () => {
+  const { t } = useLocale();
+
+  return (
+    <div data-testid="booking-list-header" className="border-subtle bg-subtle hidden border-b sm:flex">
+      <div className={COLUMN_CLASSNAMES.time}>
+        <span className="text-subtle block py-2 text-xs font-medium uppercase leading-6">{t("time")}</span>
+      </div>
+      <div className="flex-1 px-4" />
+      <div className={COLUMN_CLASSNAMES.event}>
+        <span className="text-subtle block py-2 text-xs font-medium uppercase leading-6">
+          {t("event_type")}
+        </span>
+      </div>
+      <div className={COLUMN_CLASSNAMES.source}>
+        <span className="text-subtle block py-2 text-xs font-medium uppercase leading-6">{t("source")}</span>
+      </div>
+    </div>
   );
 };
 
