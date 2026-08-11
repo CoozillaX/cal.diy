@@ -75,12 +75,6 @@ export const TeamsTable = ({ teams, isPending }: { teams: Team[]; isPending: boo
                   <div className="flex w-full justify-end">
                     <DropdownActions
                       actions={[
-                        {
-                          id: "members",
-                          label: t("members"),
-                          icon: "users",
-                          href: `/teams/${team.id}/members`,
-                        },
                         ...(team.role && ADMIN_ROLES.includes(team.role)
                           ? [
                               {
@@ -91,6 +85,12 @@ export const TeamsTable = ({ teams, isPending }: { teams: Team[]; isPending: boo
                               },
                             ]
                           : []),
+                        {
+                          id: "members",
+                          label: t("members"),
+                          icon: "users",
+                          href: `/teams/${team.id}/members`,
+                        },
                       ]}
                     />
                   </div>
