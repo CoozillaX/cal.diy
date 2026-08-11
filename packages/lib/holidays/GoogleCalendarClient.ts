@@ -34,17 +34,25 @@ export interface GoogleCalendarHoliday {
 }
 
 export class GoogleCalendarClient {
-  private apiKey: string;
+  // GOOGLE_CALENDAR_API_KEY is documented as optional (it only gates the public-holiday
+  // auto-fetch feature) - throwing here would take down the whole availability/booking flow
+  // for every request whenever it's unset, instead of just disabling this one feature.
+  private apiKey: string | null;
 
   constructor(apiKey?: string) {
-    const key = apiKey || process.env.GOOGLE_CALENDAR_API_KEY;
-    if (!key) {
-      throw new Error("GOOGLE_CALENDAR_API_KEY environment variable is not set");
+    this.apiKey = apiKey || process.env.GOOGLE_CALENDAR_API_KEY || null;
+    if (!this.apiKey) {
+      console.warn(
+        "GOOGLE_CALENDAR_API_KEY is not set - public holiday auto-fetch is disabled until it's configured."
+      );
     }
-    this.apiKey = key;
   }
 
   async fetchHolidays(countryCode: string, year: number): Promise<GoogleCalendarHoliday[]> {
+    if (!this.apiKey) {
+      return [];
+    }
+
     const calendarConfig = GOOGLE_HOLIDAY_CALENDARS[countryCode];
     if (!calendarConfig) {
       return [];

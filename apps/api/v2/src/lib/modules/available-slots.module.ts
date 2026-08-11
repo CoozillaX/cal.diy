@@ -7,6 +7,7 @@ import { PrismaMembershipRepository } from "@/lib/repositories/prisma-membership
 import { PrismaOOORepository } from "@/lib/repositories/prisma-ooo.repository";
 import { PrismaScheduleRepository } from "@/lib/repositories/prisma-schedule.repository";
 import { PrismaSelectedSlotRepository } from "@/lib/repositories/prisma-selected-slot.repository";
+import { PrismaTeamOOORepository } from "@/lib/repositories/prisma-team-ooo.repository";
 import { PrismaUserRepository } from "@/lib/repositories/prisma-user.repository";
 import { AvailableSlotsService } from "@/lib/services/available-slots.service";
 import { BusyTimesService } from "@/lib/services/busy-times.service";
@@ -21,6 +22,7 @@ import { RedisService } from "@/modules/redis/redis.service";
   imports: [PrismaWorkerModule],
   providers: [
     PrismaOOORepository,
+    PrismaTeamOOORepository,
     PrismaHolidayRepository,
     PrismaScheduleRepository,
     PrismaBookingRepository,

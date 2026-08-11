@@ -1,4 +1,5 @@
 export { PrismaOOORepository } from "@calcom/features/ooo/repositories/PrismaOOORepository";
+export { PrismaTeamOOORepository } from "@calcom/features/ooo/repositories/PrismaTeamOOORepository";
 export { PrismaHolidayRepository } from "@calcom/features/holidays/repositories/PrismaHolidayRepository";
 export { ScheduleRepository as PrismaScheduleRepository } from "@calcom/features/schedules/repositories/ScheduleRepository";
 export { BookingRepository as PrismaBookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";

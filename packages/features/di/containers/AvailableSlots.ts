@@ -17,12 +17,14 @@ import { oooRepositoryModule } from "../modules/Ooo";
 import { qualifiedHostsModule } from "../modules/QualifiedHosts";
 import { scheduleRepositoryModule } from "../modules/Schedule";
 import { selectedSlotsRepositoryModule } from "../modules/SelectedSlots";
+import { teamOooRepositoryModule } from "../modules/TeamOoo";
 import { userRepositoryModule } from "../modules/User";
 
 const container: Container = createContainer();
 container.load(DI_TOKENS.REDIS_CLIENT, redisModule);
 container.load(DI_TOKENS.PRISMA_MODULE, prismaModule);
 container.load(DI_TOKENS.OOO_REPOSITORY_MODULE, oooRepositoryModule);
+container.load(DI_TOKENS.TEAM_OOO_REPOSITORY_MODULE, teamOooRepositoryModule);
 container.load(DI_TOKENS.SCHEDULE_REPOSITORY_MODULE, scheduleRepositoryModule);
 container.load(DI_TOKENS.SELECTED_SLOT_REPOSITORY_MODULE, selectedSlotsRepositoryModule);
 container.load(DI_TOKENS.MEMBERSHIP_REPOSITORY_MODULE, membershipRepositoryModule);
