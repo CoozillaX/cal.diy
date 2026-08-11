@@ -1,5 +1,6 @@
 "use client";
 
+import NoSSR from "@calcom/lib/components/NoSSR";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { trpc } from "@calcom/trpc/react";
 import { Badge } from "@calcom/ui/components/badge";
@@ -59,7 +60,9 @@ const TeamsView = () => {
         </div>
       )}
 
-      <TeamsTable teams={teams ?? []} isPending={teamsPending} />
+      <NoSSR>
+        <TeamsTable teams={teams ?? []} isPending={teamsPending} />
+      </NoSSR>
     </>
   );
 };
