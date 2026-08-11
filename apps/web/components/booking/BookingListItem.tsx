@@ -1,11 +1,10 @@
-import Link from "next/link";
-import { useState, useEffect, useRef } from "react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
-
 import { getPaymentAppData } from "@calcom/app-store/_utils/payments/getPaymentAppData";
 import type { getEventLocationValue } from "@calcom/app-store/locations";
 import { getSuccessPageLocationMessage, guessEventLocationType } from "@calcom/app-store/locations";
 import dayjs from "@calcom/dayjs";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { Controller, useFieldArray, useForm } from "react-hook-form";
 // TODO: Use browser locale, implement Intl in Dayjs maybe?
 import "@calcom/dayjs/locales";
 import { formatTime } from "@calcom/lib/dayjs";
@@ -29,36 +28,34 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuPortal,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuPortal,
 } from "@calcom/ui/components/dropdown";
 import { Icon } from "@calcom/ui/components/icon";
 import { MeetingTimeInTimezones } from "@calcom/ui/components/popover";
 import { showToast } from "@calcom/ui/components/toast";
 import { Tooltip } from "@calcom/ui/components/tooltip";
-
 import assignmentReasonBadgeTitleMap from "@lib/booking/assignmentReasonBadgeTitleMap";
-
-import { WrongAssignmentDialog } from "../dialog/WrongAssignmentDialog";
 import { buildBookingLink } from "../../modules/bookings/lib/buildBookingLink";
 import { useBookingDetailsSheetStore } from "../../modules/bookings/store/bookingDetailsSheetStore";
 import type { BookingAttendee } from "../../modules/bookings/types";
+import { WrongAssignmentDialog } from "../dialog/WrongAssignmentDialog";
 import { AcceptBookingButton } from "./AcceptBookingButton";
-import { RejectBookingButton } from "./RejectBookingButton";
 import { BookingActionsDropdown } from "./actions/BookingActionsDropdown";
 import {
-  useBookingActionsStoreContext,
   BookingActionsStoreProvider,
+  useBookingActionsStoreContext,
 } from "./actions/BookingActionsStoreProvider";
 import {
-  shouldShowPendingActions,
-  shouldShowRecurringCancelAction,
-  shouldShowIndividualReportButton,
   type BookingActionContext,
   getReportAction,
   isActionDisabled,
+  shouldShowIndividualReportButton,
+  shouldShowPendingActions,
+  shouldShowRecurringCancelAction,
 } from "./actions/bookingActions";
+import { RejectBookingButton } from "./RejectBookingButton";
 import type { BookingItemProps } from "./types";
 
 type ParsedBooking = ReturnType<typeof buildParsedBooking>;
@@ -368,7 +365,7 @@ function BookingListItem(booking: BookingItemProps) {
                 </Badge>
               )}
               {booking.eventType?.team && (
-                <Badge className="ltr:mr-2 rtl:ml-2 sm:hidden" variant="gray">
+                <Badge className="ltr:mr-2 rtl:ml-2 sm:hidden" variant="blue" startIcon="users">
                   {booking.eventType.team.name}
                 </Badge>
               )}
@@ -397,6 +394,13 @@ function BookingListItem(booking: BookingItemProps) {
             </div>
 
             <div className="cursor-pointer py-4">
+              {booking.eventType?.title && (
+                <div
+                  className="text-subtle max-w-10/12 sm:max-w-56 truncate text-xs leading-5 md:max-w-full"
+                  title={booking.eventType.title}>
+                  {booking.eventType.title}
+                </div>
+              )}
               <div
                 title={title}
                 className={classNames(
@@ -566,6 +570,11 @@ const BookingItemBadges = ({
 
   return (
     <div className="hidden h-9 flex-row items-center pb-4 pl-6 sm:flex">
+      {booking.eventType?.team && (
+        <Badge className="ltr:mr-2 rtl:ml-2" variant="blue" startIcon="users">
+          {booking.eventType.team.name}
+        </Badge>
+      )}
       {isPending && (
         <Badge className="ltr:mr-2 rtl:ml-2" variant="orange">
           {t("unconfirmed")}
@@ -583,14 +592,11 @@ const BookingItemBadges = ({
           {t("rejected")}
         </Badge>
       )}
-      {booking.eventType?.team && (
-        <Badge className="ltr:mr-2 rtl:ml-2" variant="gray">
-          {booking.eventType.team.name}
-        </Badge>
-      )}
       {booking?.assignmentReasonSortedByCreatedAt.length > 0 && (
         <AssignmentReasonTooltip
-          assignmentReason={booking.assignmentReasonSortedByCreatedAt[booking.assignmentReasonSortedByCreatedAt.length - 1]}
+          assignmentReason={
+            booking.assignmentReasonSortedByCreatedAt[booking.assignmentReasonSortedByCreatedAt.length - 1]
+          }
           onClick={onAssignmentReasonClick}
         />
       )}
