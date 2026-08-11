@@ -21,13 +21,23 @@ export type { ITeamServiceDeps };
 export class TeamService {
   constructor(private deps: ITeamServiceDeps) {}
 
-  async createTeam({ name, slug, ownerUserId }: { name: string; slug: string; ownerUserId: number }) {
+  async createTeam({
+    name,
+    slug,
+    logoUrl,
+    ownerUserId,
+  }: {
+    name: string;
+    slug: string;
+    logoUrl?: string | null;
+    ownerUserId: number;
+  }) {
     const isAvailable = await this.deps.teamRepository.isSlugAvailable({ slug });
     if (!isAvailable) {
       throw ErrorWithCode.Factory.TeamSlugTaken(`Unable to create team: slug "${slug}" is already taken`);
     }
 
-    return this.deps.teamRepository.createWithOwner({ name, slug, ownerUserId });
+    return this.deps.teamRepository.createWithOwner({ name, slug, logoUrl, ownerUserId });
   }
 
   async getTeamForUser({ teamId, userId }: { teamId: number; userId: number }) {

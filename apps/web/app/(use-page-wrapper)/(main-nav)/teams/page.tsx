@@ -3,7 +3,7 @@ import { buildLegacyRequest } from "@lib/buildLegacyCtx";
 import { _generateMetadata, getTranslate } from "app/_utils";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import TeamsView, { TeamsCTA } from "~/settings/teams/teams-view";
+import TeamsView, { TeamsCTA } from "~/teams/views/teams-view";
 import { ShellMainAppDir } from "../ShellMainAppDir";
 
 export const generateMetadata = async () =>
@@ -16,7 +16,9 @@ export const generateMetadata = async () =>
   );
 
 const Page = async () => {
-  const session = await getServerSession({ req: buildLegacyRequest(await headers(), await cookies()) });
+  const session = await getServerSession({
+    req: buildLegacyRequest(await headers(), await cookies()),
+  });
 
   if (!session?.user?.id) {
     return redirect("/auth/login?callbackUrl=/teams");

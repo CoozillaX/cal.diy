@@ -62,15 +62,17 @@ export class TeamRepository {
   async createWithOwner({
     name,
     slug,
+    logoUrl,
     ownerUserId,
   }: {
     name: string;
     slug: string;
+    logoUrl?: string | null;
     ownerUserId: number;
   }): Promise<TeamDTO> {
     return this.prismaClient.$transaction(async (tx) => {
       const team = await tx.team.create({
-        data: { name, slug },
+        data: { name, slug, logoUrl },
         select: teamSelect,
       });
 

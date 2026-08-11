@@ -11,10 +11,13 @@ import { TextField } from "@calcom/ui/components/form";
 import { Table } from "@calcom/ui/components/table";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import EditTeamDialog from "~/teams/components/EditTeamDialog";
 
 const { Header, ColumnTitle, Body, Row, Cell } = Table;
 
 type Team = RouterOutputs["viewer"]["teams"]["list"][number];
+
+const ADMIN_ROLES: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMIN];
 
 const roleBadgeVariant = (role: Team["role"]): "orange" | "blue" | "gray" => {
   if (role === MembershipRole.OWNER) return "orange";
@@ -25,6 +28,7 @@ const roleBadgeVariant = (role: Team["role"]): "orange" | "blue" | "gray" => {
 export const TeamsTable = ({ teams, isPending }: { teams: Team[]; isPending: boolean }) => {
   const { t } = useLocale();
   const [searchTerm, setSearchTerm] = useState("");
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
   const filteredTeams = useMemo(() => {
     if (!searchTerm) return teams;
@@ -51,7 +55,7 @@ export const TeamsTable = ({ teams, isPending }: { teams: Team[]; isPending: boo
             <ColumnTitle>{t("role")}</ColumnTitle>
             <ColumnTitle>{t("members")}</ColumnTitle>
             <ColumnTitle widthClassNames="w-auto">
-              <span className="sr-only">{t("members")}</span>
+              <span className="sr-only">{t("edit")}</span>
             </ColumnTitle>
           </Header>
           <Body>
@@ -70,7 +74,17 @@ export const TeamsTable = ({ teams, isPending }: { teams: Team[]; isPending: boo
                 </Cell>
                 <Cell>{team.memberCount}</Cell>
                 <Cell widthClassNames="w-auto">
-                  <div className="flex w-full justify-end">
+                  <div className="flex w-full justify-end gap-2">
+                    {team.role && ADMIN_ROLES.includes(team.role) && (
+                      <Button
+                        type="button"
+                        color="secondary"
+                        size="sm"
+                        StartIcon="pencil"
+                        onClick={() => setEditingTeam(team)}>
+                        {t("edit")}
+                      </Button>
+                    )}
                     <Link href={`/teams/${team.id}/members`}>
                       <Button type="button" color="secondary" size="sm" StartIcon="users">
                         {t("members")}
@@ -83,6 +97,12 @@ export const TeamsTable = ({ teams, isPending }: { teams: Team[]; isPending: boo
           </Body>
         </Table>
       )}
+
+      <EditTeamDialog
+        team={editingTeam}
+        open={!!editingTeam}
+        onOpenChange={(open) => !open && setEditingTeam(null)}
+      />
     </div>
   );
 };

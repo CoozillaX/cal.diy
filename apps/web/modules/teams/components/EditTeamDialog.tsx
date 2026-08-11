@@ -1,6 +1,7 @@
+"use client";
+
 import { getPlaceholderAvatar } from "@calcom/lib/defaultAvatarImage";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import slugify from "@calcom/lib/slugify";
 import { trpc } from "@calcom/trpc/react";
 import { Avatar } from "@calcom/ui/components/avatar";
 import { Button } from "@calcom/ui/components/button";
@@ -8,29 +9,39 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/co
 import { Form, TextField } from "@calcom/ui/components/form";
 import { ImageUploader } from "@calcom/ui/components/image-uploader";
 import { showToast } from "@calcom/ui/components/toast";
-import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 
 type FormValues = { name: string; logoUrl: string | null };
 
-const CreateTeamDialog = ({
+type EditableTeam = { id: number; name: string; logoUrl: string | null };
+
+const EditTeamDialog = ({
+  team,
   open,
   onOpenChange,
 }: {
+  team: EditableTeam | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }) => {
   const { t } = useLocale();
-  const router = useRouter();
   const utils = trpc.useUtils();
   const form = useForm<FormValues>({ defaultValues: { name: "", logoUrl: null } });
 
-  const createMutation = trpc.viewer.teams.create.useMutation({
-    onSuccess: async (team) => {
+  // The dialog mounts once and gets reused for whichever row was clicked, so the form has to
+  // be re-seeded from the current `team` prop each time a new one is opened.
+  useEffect(() => {
+    if (team) {
+      form.reset({ name: team.name, logoUrl: team.logoUrl });
+    }
+  }, [team, form]);
+
+  const updateMutation = trpc.viewer.teams.update.useMutation({
+    onSuccess: async () => {
       await utils.viewer.teams.list.invalidate();
-      form.reset();
+      showToast(t("team_updated_successfully"), "success");
       onOpenChange(false);
-      router.push(`/teams/${team.id}/members`);
     },
     onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
   });
@@ -38,15 +49,12 @@ const CreateTeamDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent type="creation">
-        <DialogHeader title={t("create_team")} />
+        <DialogHeader title={t("edit_team")} />
         <Form
           form={form}
           handleSubmit={(values) => {
-            createMutation.mutate({
-              name: values.name,
-              slug: slugify(values.name),
-              logoUrl: values.logoUrl,
-            });
+            if (!team) return;
+            updateMutation.mutate({ id: team.id, name: values.name, logoUrl: values.logoUrl });
           }}>
           <Controller
             control={form.control}
@@ -61,7 +69,7 @@ const CreateTeamDialog = ({
                 <div className="ml-4">
                   <ImageUploader
                     target={t("team_logo")}
-                    id="team-logo-upload"
+                    id="team-logo-upload-edit"
                     buttonMsg={t("upload_logo")}
                     handleAvatarChange={onChange}
                     imageSrc={getPlaceholderAvatar(value, form.watch("name"))}
@@ -75,8 +83,8 @@ const CreateTeamDialog = ({
             <Button type="button" color="secondary" onClick={() => onOpenChange(false)}>
               {t("cancel")}
             </Button>
-            <Button type="submit" loading={createMutation.isPending}>
-              {t("create_team")}
+            <Button type="submit" loading={updateMutation.isPending}>
+              {t("save")}
             </Button>
           </DialogFooter>
         </Form>
@@ -85,4 +93,4 @@ const CreateTeamDialog = ({
   );
 };
 
-export default CreateTeamDialog;
+export default EditTeamDialog;

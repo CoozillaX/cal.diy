@@ -11,8 +11,8 @@ import { showToast } from "@calcom/ui/components/toast";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
-import InviteMemberDialog from "~/settings/teams/components/InviteMemberDialog";
-import MemberListItem from "~/settings/teams/components/MemberListItem";
+import InviteMemberDialog from "~/teams/components/InviteMemberDialog";
+import MemberListItem from "~/teams/components/MemberListItem";
 
 const ADMIN_ROLES: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMIN];
 

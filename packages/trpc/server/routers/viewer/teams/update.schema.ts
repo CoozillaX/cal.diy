@@ -10,6 +10,7 @@ export const ZUpdateInputSchema = z.object({
     .transform((val) => slugify(val.trim()))
     .optional(),
   bio: z.string().optional(),
+  logoUrl: z.string().nullable().optional(),
   theme: z.string().nullable().optional(),
   brandColor: z.string().optional(),
   darkBrandColor: z.string().optional(),

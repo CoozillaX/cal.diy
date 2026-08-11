@@ -56,13 +56,14 @@ export const EventMembers = ({
       ? []
       : [
           {
-            // We don't want booker to be able to see the list of other users or teams inside the embed
+            // There's no team public-profile page (a bare /team/{slug} landing listing every
+            // team event type) - only /team/{slug}/{eventType}. Linking there would just 404,
+            // so the team avatar is a non-clickable label rather than a dead link. Falls back
+            // to the homepage for personal events, same as before.
             href:
-              isEmbed || isPlatform || isPrivateLink || entity.hideProfileLink
+              isEmbed || isPlatform || isPrivateLink || entity.hideProfileLink || entity.teamSlug
                 ? null
-                : entity.teamSlug
-                  ? `${WEBAPP_URL}/team/${entity.teamSlug}`
-                  : WEBAPP_URL,
+                : WEBAPP_URL,
             image: entity.logoUrl ?? profile.image ?? "",
             alt: entity.name ?? profile.name ?? "",
             title: entity.name ?? profile.name ?? "",

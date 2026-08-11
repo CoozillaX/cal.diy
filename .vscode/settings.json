@@ -12,5 +12,27 @@
   "tailwindCSS.classFunctions": ["cva"],
   "[typescript]": {
     "editor.defaultFormatter": "biomejs.biome"
+  },
+  "files.watcherExclude": {
+    "**/.next/**": true,
+    "**/.turbo/**": true,
+    "**/dist/**": true,
+    "**/.yarn/**": true,
+    "**/coverage/**": true,
+    "**/packages/trpc/types/**": true,
+    "**/*.tsbuildinfo": true
+  },
+  "search.exclude": {
+    "**/.next": true,
+    "**/.turbo": true,
+    "**/dist": true,
+    "**/.yarn": true,
+    "**/coverage": true,
+    "**/packages/trpc/types": true,
+    "**/*.generated.ts": true,
+    "**/*.generated.tsx": true
+  },
+  "typescript.tsserver.watchOptions": {
+    "excludeDirectories": ["**/.next", "**/.turbo", "**/dist", "**/.yarn", "**/node_modules"]
   }
 }

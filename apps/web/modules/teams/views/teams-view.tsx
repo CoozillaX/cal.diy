@@ -7,8 +7,8 @@ import { Badge } from "@calcom/ui/components/badge";
 import { Button } from "@calcom/ui/components/button";
 import { showToast } from "@calcom/ui/components/toast";
 import { useState } from "react";
-import CreateTeamDialog from "~/settings/teams/components/CreateTeamDialog";
-import { TeamsTable } from "~/settings/teams/components/TeamsTable";
+import CreateTeamDialog from "~/teams/components/CreateTeamDialog";
+import { TeamsTable } from "~/teams/components/TeamsTable";
 
 /** Content only - the page (rendered inside the main app shell, not the settings shell)
  * owns the heading and renders TeamsCTA separately as the shell's CTA slot. */

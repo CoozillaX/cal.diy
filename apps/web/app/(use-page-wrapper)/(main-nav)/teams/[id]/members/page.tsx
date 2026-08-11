@@ -5,7 +5,7 @@ import type { PageProps } from "app/_types";
 import { _generateMetadata, getTranslate } from "app/_utils";
 import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
-import MembersView, { MembersCTA } from "~/settings/teams/members-view";
+import MembersView, { MembersCTA } from "~/teams/views/members-view";
 import { ShellMainAppDir } from "../../../ShellMainAppDir";
 
 export const generateMetadata = async ({ params }: { params: Promise<{ id: string }> }) =>

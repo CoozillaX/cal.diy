@@ -13,6 +13,7 @@ export const createHandler = async ({ ctx, input }: CreateHandlerOptions) => {
   return teamService.createTeam({
     name: input.name,
     slug: input.slug,
+    logoUrl: input.logoUrl,
     ownerUserId: ctx.user.id,
   });
 };

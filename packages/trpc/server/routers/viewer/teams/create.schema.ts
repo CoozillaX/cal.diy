@@ -7,6 +7,7 @@ export const ZCreateInputSchema = z.object({
     .string()
     .min(1)
     .transform((val) => slugify(val.trim())),
+  logoUrl: z.string().nullable().optional(),
 });
 
 export type TCreateInputSchema = z.infer<typeof ZCreateInputSchema>;
