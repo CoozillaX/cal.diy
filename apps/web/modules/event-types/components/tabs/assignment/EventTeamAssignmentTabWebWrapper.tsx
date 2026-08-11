@@ -1,11 +1,12 @@
 "use client";
 
+import type { CheckedSelectOption } from "@calcom/features/eventtypes/components/CheckedTeamSelect";
+import { CheckedTeamSelect } from "@calcom/features/eventtypes/components/CheckedTeamSelect";
 import type { EventTypeSetupProps, FormValues, Host } from "@calcom/features/eventtypes/lib/types";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import { MembershipRole, SchedulingType } from "@calcom/prisma/enums";
-import { Avatar } from "@calcom/ui/components/avatar";
-import { Badge } from "@calcom/ui/components/badge";
-import { Checkbox, SelectField } from "@calcom/ui/components/form";
+import { SchedulingType } from "@calcom/prisma/enums";
+import { Label, SelectField, Switch } from "@calcom/ui/components/form";
+import { useMemo } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import type { EventTypeSetup, TeamMembers } from "../../EventType";
 
@@ -30,7 +31,7 @@ const EventTeamAssignmentTabWebWrapper = ({
 
   const schedulingType = formMethods.watch("schedulingType") ?? eventType.schedulingType;
   const hosts = formMethods.watch("hosts") ?? [];
-  const selectedUserIds = new Set(hosts.map((host) => host.userId));
+  const isRRWeightsEnabled = formMethods.watch("isRRWeightsEnabled") ?? eventType.isRRWeightsEnabled;
 
   const schedulingTypeOptions = TEAM_SCHEDULING_TYPES.map((value) => ({
     value,
@@ -40,26 +41,60 @@ const EventTeamAssignmentTabWebWrapper = ({
     ),
   }));
 
+  // Hooks must run unconditionally on every render, so these are computed before the early
+  // return below even though their result goes unused for MANAGED event types.
+  const memberOptions: CheckedSelectOption[] = useMemo(
+    () =>
+      teamMembers.map((member) => ({
+        value: String(member.id),
+        label: member.name || member.email,
+        avatar: member.avatar,
+        defaultScheduleId: member.defaultScheduleId,
+        groupId: null,
+      })),
+    [teamMembers]
+  );
+
+  const selectedOptions: CheckedSelectOption[] = useMemo(
+    () =>
+      hosts.flatMap((host) => {
+        const member = teamMembers.find((m) => m.id === host.userId);
+        if (!member) return [];
+        return [
+          {
+            value: String(host.userId),
+            label: member.name || member.email,
+            avatar: member.avatar,
+            priority: host.priority,
+            weight: host.weight,
+            isFixed: host.isFixed,
+            groupId: host.groupId,
+          },
+        ];
+      }),
+    [hosts, teamMembers]
+  );
+
   // Managed event types push their config out to each member's own event type instead of
   // listing hosts here - this tab has nothing meaningful to assign for that scheduling type.
   if (schedulingType === SchedulingType.MANAGED) {
     return null;
   }
 
-  const toggleHost = (userId: number, checked: boolean) => {
-    const nextHosts: Host[] = checked
-      ? [
-          ...hosts,
-          {
-            userId,
-            isFixed: schedulingType === SchedulingType.COLLECTIVE,
-            priority: DEFAULT_HOST_PRIORITY,
-            weight: DEFAULT_HOST_WEIGHT,
-            groupId: null,
-          },
-        ]
-      : hosts.filter((host) => host.userId !== userId);
-
+  const handleHostsChange = (value: readonly CheckedSelectOption[]) => {
+    const nextHosts: Host[] = value.map((option) => {
+      const userId = parseInt(option.value, 10);
+      return {
+        userId,
+        isFixed: schedulingType === SchedulingType.COLLECTIVE || !!option.isFixed,
+        priority: option.priority ?? DEFAULT_HOST_PRIORITY,
+        weight: option.weight ?? DEFAULT_HOST_WEIGHT,
+        // Priority/weight edits round-trip through CheckedSelectOption, which has no
+        // scheduleId field - preserve whatever the host already had instead of losing it.
+        scheduleId: hosts.find((host) => host.userId === userId)?.scheduleId ?? null,
+        groupId: option.groupId,
+      };
+    });
     formMethods.setValue("hosts", nextHosts, { shouldDirty: true });
   };
 
@@ -89,29 +124,28 @@ const EventTeamAssignmentTabWebWrapper = ({
         )}
       />
 
-      <div className="border-subtle rounded-lg border">
-        <div className="border-subtle border-b px-4 py-3">
-          <p className="text-emphasis text-sm font-medium">{t("hosts")}</p>
+      {schedulingType === SchedulingType.ROUND_ROBIN && (
+        <div>
+          <Switch
+            label={t("enable_weights")}
+            checked={!!isRRWeightsEnabled}
+            onCheckedChange={(checked) =>
+              formMethods.setValue("isRRWeightsEnabled", checked, { shouldDirty: true })
+            }
+          />
+          <p className="text-subtle mt-1 text-sm">{t("weights_description")}</p>
         </div>
-        {teamMembers.length === 0 && <p className="text-subtle p-4 text-sm">{t("no_members_found")}</p>}
-        {teamMembers.map((member, index) => (
-          <div
-            key={member.id}
-            className={`flex items-center gap-3 px-4 py-3 ${
-              index === teamMembers.length - 1 ? "" : "border-subtle border-b"
-            }`}>
-            <Checkbox
-              checked={selectedUserIds.has(member.id)}
-              onCheckedChange={(checked) => toggleHost(member.id, !!checked)}
-            />
-            <Avatar size="sm" imageSrc={member.avatar} alt={member.name ?? member.email} />
-            <div>
-              <p className="text-emphasis text-sm font-medium">{member.name ?? member.email}</p>
-              <p className="text-subtle text-sm">{member.email}</p>
-            </div>
-            {member.membership === MembershipRole.OWNER && <Badge variant="orange">{t("owner")}</Badge>}
-          </div>
-        ))}
+      )}
+
+      <div>
+        <Label>{t("hosts")}</Label>
+        <CheckedTeamSelect
+          groupId={null}
+          isRRWeightsEnabled={schedulingType === SchedulingType.ROUND_ROBIN && !!isRRWeightsEnabled}
+          options={memberOptions}
+          value={selectedOptions}
+          onChange={handleHostsChange}
+        />
       </div>
 
       {hosts.length === 0 && <p className="text-error text-sm">{t("no_hosts_selected_warning")}</p>}
