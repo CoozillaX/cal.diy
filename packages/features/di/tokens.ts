@@ -16,6 +16,8 @@ export const DI_TOKENS = {
   REDIS_CLIENT: Symbol("RedisClient"),
   OOO_REPOSITORY: Symbol("OOORepository"),
   OOO_REPOSITORY_MODULE: Symbol("OOORepositoryModule"),
+  TEAM_OOO_REPOSITORY: Symbol("TeamOOORepository"),
+  TEAM_OOO_REPOSITORY_MODULE: Symbol("TeamOOORepositoryModule"),
   SCHEDULE_REPOSITORY: Symbol("ScheduleRepository"),
   SCHEDULE_REPOSITORY_MODULE: Symbol("ScheduleRepositoryModule"),
   SELECTED_SLOT_REPOSITORY: Symbol("SelectedSlotRepository"),

@@ -29,6 +29,7 @@ const mockDependencies = {
   redisClient: {} as never,
   eventTypeRepo: {} as never,
   holidayRepo: mockHolidayRepo as never,
+  teamOooRepo: {} as never,
 };
 
 describe("UserAvailabilityService.calculateHolidayBlockedDates", () => {

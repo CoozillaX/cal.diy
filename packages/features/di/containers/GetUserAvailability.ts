@@ -10,10 +10,12 @@ import { eventTypeRepositoryModule } from "../modules/EventType";
 import { getUserAvailabilityModule } from "../modules/GetUserAvailability";
 import { holidayRepositoryModule } from "../modules/Holiday";
 import { oooRepositoryModule } from "../modules/Ooo";
+import { teamOooRepositoryModule } from "../modules/TeamOoo";
 
 const container = createContainer();
 container.load(DI_TOKENS.PRISMA_MODULE, prismaModule);
 container.load(DI_TOKENS.OOO_REPOSITORY_MODULE, oooRepositoryModule);
+container.load(DI_TOKENS.TEAM_OOO_REPOSITORY_MODULE, teamOooRepositoryModule);
 container.load(DI_TOKENS.BOOKING_REPOSITORY_MODULE, bookingRepositoryModule);
 container.load(DI_TOKENS.EVENT_TYPE_REPOSITORY_MODULE, eventTypeRepositoryModule);
 container.load(DI_TOKENS.HOLIDAY_REPOSITORY_MODULE, holidayRepositoryModule);

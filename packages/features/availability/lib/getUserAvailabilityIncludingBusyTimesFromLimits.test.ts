@@ -50,6 +50,9 @@ const mockDependencies: ConstructorParameters<typeof UserAvailabilityService>[0]
   holidayRepo: {
     findUserSettingsSelect: vi.fn().mockResolvedValue(null),
   },
+  teamOooRepo: {
+    findTeamOOODays: vi.fn().mockResolvedValue([]),
+  },
 };
 
 const DATE_FROM = "2025-01-06T00:00:00Z";

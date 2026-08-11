@@ -11,4 +11,5 @@ getUserAvailabilityModule.bind(DI_TOKENS.GET_USER_AVAILABILITY_SERVICE).toClass(
   eventTypeRepo: DI_TOKENS.EVENT_TYPE_REPOSITORY,
   redisClient: DI_TOKENS.REDIS_CLIENT,
   holidayRepo: DI_TOKENS.HOLIDAY_REPOSITORY,
+  teamOooRepo: DI_TOKENS.TEAM_OOO_REPOSITORY,
 } satisfies Record<keyof IUserAvailabilityService, symbol>);

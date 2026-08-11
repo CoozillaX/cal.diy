@@ -10,6 +10,7 @@ import { getBusyTimesService } from "@calcom/features/di/containers/BusyTimes";
 import type { EventTypeRepository } from "@calcom/features/eventtypes/repositories/eventTypeRepository";
 import type { PrismaHolidayRepository } from "@calcom/features/holidays/repositories/PrismaHolidayRepository";
 import type { PrismaOOORepository } from "@calcom/features/ooo/repositories/PrismaOOORepository";
+import type { PrismaTeamOOORepository } from "@calcom/features/ooo/repositories/PrismaTeamOOORepository";
 import type { IRedisService } from "@calcom/features/redis/IRedisService";
 import type { DateOverride, WorkingHours } from "@calcom/features/schedules/lib/date-ranges";
 import { buildDateRanges, subtract } from "@calcom/features/schedules/lib/date-ranges";
@@ -223,6 +224,7 @@ export interface IUserAvailabilityService {
   bookingRepo: BookingRepository;
   redisClient: IRedisService;
   holidayRepo: PrismaHolidayRepository;
+  teamOooRepo: PrismaTeamOOORepository;
 }
 
 export class UserAvailabilityService {
@@ -483,6 +485,25 @@ export class UserAvailabilityService {
     for (const [date, holidayData] of Object.entries(holidayBlockedDates)) {
       if (!datesOutOfOffice[date]) {
         datesOutOfOffice[date] = holidayData;
+      }
+    }
+
+    // A team event blocks on the team's own closures/holidays too, on top of whatever the
+    // host has set personally - checked here rather than prefetched in bulk like personal OOO
+    // because it mirrors the existing (also per-call) calculateHolidayBlockedDates above.
+    const teamId = eventType?.team?.id ?? eventType?.parent?.team?.id ?? null;
+    if (teamId) {
+      const teamBlockedDates = await this.calculateTeamBlockedDates(
+        teamId,
+        dateFrom.toDate(),
+        dateTo.toDate(),
+        availability
+      );
+
+      for (const [date, teamData] of Object.entries(teamBlockedDates)) {
+        if (!datesOutOfOffice[date]) {
+          datesOutOfOffice[date] = teamData;
+        }
       }
     }
 
@@ -872,6 +893,101 @@ export class UserAvailabilityService {
       }
 
       // Match OOO pattern: key by the date string (already in YYYY-MM-DD UTC format)
+      result[date] = {
+        fromUser: null,
+        toUser: null,
+        reason: holiday.name,
+        emoji: getHolidayEmoji(holiday.name),
+      };
+    }
+
+    return result;
+  }
+
+  calculateTeamOutOfOfficeRanges(
+    teamOutOfOfficeDays: Awaited<ReturnType<PrismaTeamOOORepository["findTeamOOODays"]>>,
+    availability: GetUserAvailabilityParamsDTO["availability"]
+  ): IOutOfOfficeData {
+    if (!teamOutOfOfficeDays || teamOutOfOfficeDays.length === 0) {
+      return {};
+    }
+
+    const flattenDays = Array.from(new Set(availability.flatMap((a) => ("days" in a ? a.days : [])))).sort(
+      (a, b) => a - b
+    );
+
+    return teamOutOfOfficeDays.reduce((acc: IOutOfOfficeData, { start, end, reason, notes }) => {
+      const startDateRange = dayjs(start).utc().isBefore(dayjs().startOf("day").utc())
+        ? dayjs().utc().startOf("day")
+        : dayjs(start).utc().startOf("day");
+      const endDateRange = dayjs(end).utc().endOf("day");
+
+      for (let date = startDateRange; date.isBefore(endDateRange); date = date.add(1, "day")) {
+        if (!flattenDays.includes(date.day())) {
+          continue;
+        }
+
+        acc[date.format("YYYY-MM-DD")] = {
+          // Team closures aren't attributed to a person, so there's no fromUser/toUser here -
+          // the reason/notes carry whatever context is worth surfacing (e.g. "Company retreat").
+          fromUser: null,
+          toUser: null,
+          reason: reason?.reason || null,
+          emoji: reason?.emoji || null,
+          notes,
+        };
+      }
+
+      return acc;
+    }, {});
+  }
+
+  async calculateTeamBlockedDates(
+    teamId: number,
+    startDate: Date,
+    endDate: Date,
+    availability: GetUserAvailabilityParamsDTO["availability"]
+  ): Promise<IOutOfOfficeData> {
+    const teamOutOfOfficeDays = await this.dependencies.teamOooRepo.findTeamOOODays({
+      teamId,
+      dateFrom: startDate.toISOString(),
+      dateTo: endDate.toISOString(),
+    });
+
+    const result = this.calculateTeamOutOfOfficeRanges(teamOutOfOfficeDays, availability);
+
+    const holidaySettings = await this.dependencies.holidayRepo.findTeamSettingsSelect({
+      teamId,
+      select: {
+        countryCode: true,
+        disabledIds: true,
+      },
+    });
+
+    if (!holidaySettings || !holidaySettings.countryCode) {
+      return result;
+    }
+
+    const startOfDay = dayjs(startDate).utc().startOf("day").toDate();
+    const endOfDay = dayjs(endDate).utc().endOf("day").toDate();
+
+    const holidayService = getHolidayService();
+    const holidayDates = await holidayService.getHolidayDatesInRange(
+      holidaySettings.countryCode,
+      holidaySettings.disabledIds,
+      startOfDay,
+      endOfDay
+    );
+
+    const flattenDays = Array.from(new Set(availability.flatMap((a) => ("days" in a ? a.days : [])))).sort(
+      (a, b) => a - b
+    );
+
+    for (const { date, holiday } of holidayDates) {
+      if (result[date] || !flattenDays.includes(dayjs.utc(date).day())) {
+        continue;
+      }
+
       result[date] = {
         fromUser: null,
         toUser: null,

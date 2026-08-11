@@ -5,10 +5,16 @@ import { ZChangeMemberRoleInputSchema } from "./changeMemberRole.schema";
 import { ZCreateInputSchema } from "./create.schema";
 import { ZDeleteInputSchema } from "./delete.schema";
 import { ZGetInputSchema } from "./get.schema";
+import { ZHolidaySettingsInputSchema } from "./holidaySettings.schema";
+import { ZHolidayToggleInputSchema } from "./holidayToggle.schema";
+import { ZHolidayUpdateSettingsInputSchema } from "./holidayUpdateSettings.schema";
 import { ZInviteInputSchema } from "./invite.schema";
 import { ZLeaveTeamInputSchema } from "./leaveTeam.schema";
 import { ZListMembersInputSchema } from "./listMembers.schema";
 import { ZListPaginatedInputSchema } from "./listPaginated.schema";
+import { ZOOOCreateInputSchema } from "./oooCreate.schema";
+import { ZOOODeleteInputSchema } from "./oooDelete.schema";
+import { ZOOOListInputSchema } from "./oooList.schema";
 import { ZRemoveMemberInputSchema } from "./removeMember.schema";
 import { ZUpdateInputSchema } from "./update.schema";
 
@@ -102,5 +108,49 @@ export const teamsRouter = router({
     const { leaveTeamHandler } = await import("./leaveTeam.handler");
 
     return leaveTeamHandler({ ctx, input });
+  }),
+
+  // List a team's own closures/time-off entries (any accepted member can view)
+  oooList: authedProcedure.input(ZOOOListInputSchema).query(async ({ ctx, input }) => {
+    const { oooListHandler } = await import("./oooList.handler");
+
+    return oooListHandler({ ctx, input });
+  }),
+
+  // Add a team-wide closure/time-off entry (team admin/owner only)
+  oooCreate: authedProcedure.input(ZOOOCreateInputSchema).mutation(async ({ ctx, input }) => {
+    const { oooCreateHandler } = await import("./oooCreate.handler");
+
+    return oooCreateHandler({ ctx, input });
+  }),
+
+  // Remove a team-wide closure/time-off entry (team admin/owner only)
+  oooDelete: authedProcedure.input(ZOOODeleteInputSchema).mutation(async ({ ctx, input }) => {
+    const { oooDeleteHandler } = await import("./oooDelete.handler");
+
+    return oooDeleteHandler({ ctx, input });
+  }),
+
+  // Get a team's public-holiday country + which holidays are enabled (any accepted member can view)
+  holidaySettings: authedProcedure.input(ZHolidaySettingsInputSchema).query(async ({ ctx, input }) => {
+    const { holidaySettingsHandler } = await import("./holidaySettings.handler");
+
+    return holidaySettingsHandler({ ctx, input });
+  }),
+
+  // Set a team's public-holiday country (team admin/owner only)
+  holidayUpdateSettings: authedProcedure
+    .input(ZHolidayUpdateSettingsInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { holidayUpdateSettingsHandler } = await import("./holidayUpdateSettings.handler");
+
+      return holidayUpdateSettingsHandler({ ctx, input });
+    }),
+
+  // Enable/disable one of the team's country's public holidays (team admin/owner only)
+  holidayToggle: authedProcedure.input(ZHolidayToggleInputSchema).mutation(async ({ ctx, input }) => {
+    const { holidayToggleHandler } = await import("./holidayToggle.handler");
+
+    return holidayToggleHandler({ ctx, input });
   }),
 });

@@ -201,6 +201,78 @@ export class HolidayService {
     return { countryCode: settings.countryCode, holidays: updatedHolidays };
   }
 
+  async getTeamSettings(
+    teamId: number
+  ): Promise<{ countryCode: string | null; holidays: HolidayWithStatus[] }> {
+    const settings = await HolidayRepository.findTeamSettings({ teamId });
+
+    if (!settings?.countryCode) {
+      return { countryCode: null, holidays: [] };
+    }
+
+    const holidays = await this.getHolidaysWithStatus(settings.countryCode, settings.disabledIds);
+    return { countryCode: settings.countryCode, holidays };
+  }
+
+  async updateTeamSettings(
+    teamId: number,
+    countryCode: string | null,
+    resetDisabledHolidays: boolean
+  ): Promise<{ countryCode: string | null; holidays: HolidayWithStatus[] }> {
+    if (countryCode && !this.isSupportedCountry(countryCode)) {
+      throw new Error("Invalid country code");
+    }
+
+    const settings = await HolidayRepository.upsertTeamSettings({
+      teamId,
+      countryCode,
+      resetDisabledHolidays,
+    });
+
+    if (settings.countryCode) {
+      const holidays = await this.getHolidaysWithStatus(settings.countryCode, settings.disabledIds);
+      return { countryCode: settings.countryCode, holidays };
+    }
+
+    return { countryCode: null, holidays: [] };
+  }
+
+  async toggleTeamHoliday(
+    teamId: number,
+    holidayId: string,
+    enabled: boolean
+  ): Promise<{ countryCode: string; holidays: HolidayWithStatus[] }> {
+    const settings = await HolidayRepository.findTeamSettings({ teamId });
+
+    if (!settings?.countryCode) {
+      throw new Error("No holiday country selected");
+    }
+
+    const currentYear = dayjs().year();
+    const nextYear = currentYear + 1;
+    const [currentYearHolidays, nextYearHolidays] = await Promise.all([
+      this.getHolidaysForCountry(settings.countryCode, currentYear),
+      this.getHolidaysForCountry(settings.countryCode, nextYear),
+    ]);
+    const allHolidays = [...currentYearHolidays, ...nextYearHolidays];
+
+    if (!allHolidays.some((h) => h.id === holidayId)) {
+      throw new Error("Holiday not found for this country");
+    }
+
+    let disabledIds = [...settings.disabledIds];
+    if (enabled) {
+      disabledIds = disabledIds.filter((id) => id !== holidayId);
+    } else if (!disabledIds.includes(holidayId)) {
+      disabledIds.push(holidayId);
+    }
+
+    await HolidayRepository.updateTeamDisabledIds({ teamId, disabledIds });
+
+    const updatedHolidays = await this.getHolidaysWithStatus(settings.countryCode, disabledIds);
+    return { countryCode: settings.countryCode, holidays: updatedHolidays };
+  }
+
   async checkConflicts(
     userId: number,
     countryCode: string,

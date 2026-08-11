@@ -23,6 +23,15 @@ const userHolidaySettingsSelect = {
   updatedAt: true,
 } satisfies Prisma.UserHolidaySettingsSelect;
 
+const teamHolidaySettingsSelect = {
+  id: true,
+  teamId: true,
+  countryCode: true,
+  disabledIds: true,
+  createdAt: true,
+  updatedAt: true,
+} satisfies Prisma.TeamHolidaySettingsSelect;
+
 export class HolidayRepository {
   static async findFirstCacheEntry({ countryCode, year }: { countryCode: string; year: number }) {
     return prisma.holidayCache.findFirst({
@@ -181,6 +190,45 @@ export class HolidayRepository {
       where: { userId },
       data: { disabledIds },
       select: userHolidaySettingsSelect,
+    });
+  }
+
+  static async findTeamSettings({ teamId }: { teamId: number }) {
+    return prisma.teamHolidaySettings.findUnique({
+      where: { teamId },
+      select: teamHolidaySettingsSelect,
+    });
+  }
+
+  static async upsertTeamSettings({
+    teamId,
+    countryCode,
+    resetDisabledHolidays = false,
+  }: {
+    teamId: number;
+    countryCode: string | null;
+    resetDisabledHolidays?: boolean;
+  }) {
+    return prisma.teamHolidaySettings.upsert({
+      where: { teamId },
+      create: {
+        teamId,
+        countryCode,
+        disabledIds: [],
+      },
+      update: {
+        countryCode,
+        ...(resetDisabledHolidays ? { disabledIds: [] } : {}),
+      },
+      select: teamHolidaySettingsSelect,
+    });
+  }
+
+  static async updateTeamDisabledIds({ teamId, disabledIds }: { teamId: number; disabledIds: string[] }) {
+    return prisma.teamHolidaySettings.update({
+      where: { teamId },
+      data: { disabledIds },
+      select: teamHolidaySettingsSelect,
     });
   }
 
