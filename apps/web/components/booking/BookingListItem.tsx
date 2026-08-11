@@ -374,9 +374,13 @@ function BookingListItem(booking: BookingItemProps) {
                   {t("unconfirmed")}
                 </Badge>
               )}
-              {booking.eventType?.team && (
+              {booking.eventType?.team ? (
                 <Badge className="ltr:mr-2 rtl:ml-2 sm:hidden" variant="blue" startIcon="users">
                   {booking.eventType.team.name}
+                </Badge>
+              ) : (
+                <Badge className="ltr:mr-2 rtl:ml-2 sm:hidden" variant="gray" startIcon="user">
+                  {t("individual")}
                 </Badge>
               )}
               {showPendingPayment && (
