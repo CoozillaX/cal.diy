@@ -507,6 +507,7 @@ model User {
   agents                         Agent[]
   oAuthClients                   OAuthClient[]
   holidaySettings                UserHolidaySettings?
+  createdTeamOutOfOfficeEntries  TeamOutOfOfficeEntry[]        @relation("CreatedTeamOutOfOfficeEntries")
 
   autoOptInFeatures Boolean @default(false)
 
@@ -644,6 +645,9 @@ model Team {
   // Monthly proration tracking
   seatChangeLogs    SeatChangeLog[]
   monthlyProrations MonthlyProration[]
+
+  outOfOfficeEntries TeamOutOfOfficeEntry[]
+  holidaySettings    TeamHolidaySettings?
 
   @@unique([slug, parentId])
   @@index([parentId])
@@ -1680,7 +1684,8 @@ model OutOfOfficeReason {
   userId  Int?
   user    User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  entries OutOfOfficeEntry[]
+  entries     OutOfOfficeEntry[]
+  teamEntries TeamOutOfOfficeEntry[]
 }
 
 model UserHolidaySettings {
@@ -1710,6 +1715,42 @@ model HolidayCache {
   @@unique([countryCode, eventId])
   @@index([countryCode, year])
   @@index([countryCode, date])
+}
+
+// Team/company-wide closures (e.g. "Christmas break", "Company retreat") that block
+// availability for every member on that team's events, on top of each member's personal OOO.
+model TeamOutOfOfficeEntry {
+  id     Int      @id @default(autoincrement())
+  uuid   String   @unique
+  start  DateTime
+  end    DateTime
+  notes  String?
+  teamId Int
+  team   Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  reasonId Int?
+  reason   OutOfOfficeReason? @relation(fields: [reasonId], references: [id], onDelete: SetNull)
+
+  createdById Int?
+  createdBy   User? @relation("CreatedTeamOutOfOfficeEntries", fields: [createdById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([uuid])
+  @@index([teamId])
+  @@index([start, end])
+}
+
+model TeamHolidaySettings {
+  id          Int      @id @default(autoincrement())
+  teamId      Int      @unique
+  team        Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  countryCode String?
+  disabledIds String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // Platform
