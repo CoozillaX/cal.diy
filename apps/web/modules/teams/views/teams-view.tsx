@@ -34,8 +34,8 @@ const TeamsView = () => {
     <>
       {!invitesPending && pendingInvites && pendingInvites.length > 0 && (
         <div className="mb-6">
-          <h3 className="text-emphasis mb-2 text-sm font-semibold">{t("pending_invites")}</h3>
-          <div className="border-subtle rounded-lg border">
+          <h3 className="mb-2 font-semibold text-emphasis text-sm">{t("pending_invites")}</h3>
+          <div className="rounded-lg border border-subtle">
             {pendingInvites.map((invite, index) => (
               <div
                 key={invite.team.id}
@@ -43,7 +43,7 @@ const TeamsView = () => {
                   index === pendingInvites.length - 1 ? "" : "border-subtle border-b"
                 }`}>
                 <div>
-                  <p className="text-emphasis text-sm font-semibold">{invite.team.name}</p>
+                  <p className="font-semibold text-emphasis text-sm">{invite.team.name}</p>
                   <Badge variant="orange">{t("pending")}</Badge>
                 </div>
                 <Button

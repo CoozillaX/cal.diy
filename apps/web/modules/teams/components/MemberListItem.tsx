@@ -77,13 +77,13 @@ const MemberListItem = ({
         />
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-emphasis text-sm font-semibold">
+            <span className="font-semibold text-emphasis text-sm">
               {member.user.name ?? member.user.username ?? member.user.email}
             </span>
             {isSelf && <Badge variant="gray">{t("you")}</Badge>}
             {!member.accepted && <Badge variant="orange">{t("pending")}</Badge>}
           </div>
-          <span className="text-subtle text-sm">{member.user.email}</span>
+          <span className="text-sm text-subtle">{member.user.email}</span>
         </div>
       </div>
 
@@ -132,7 +132,7 @@ const MemberListItem = ({
             removeMutation.mutate({ teamId, memberId: member.user.id });
             setRemoveDialogOpen(false);
           }}>
-          <p className="text-subtle text-sm">{member.user.email}</p>
+          <p className="text-sm text-subtle">{member.user.email}</p>
         </ConfirmationDialogContent>
       </Dialog>
     </div>

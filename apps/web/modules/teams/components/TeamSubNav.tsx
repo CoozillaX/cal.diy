@@ -1,6 +1,6 @@
 "use client";
 
-import HorizontalTabs from "@calcom/ui/components/navigation/tabs/HorizontalTabs";
+import { HorizontalTabs } from "@calcom/ui/components/navigation";
 
 // HorizontalTabItem translates `name` itself, so these are i18n keys, not translated strings.
 const TeamSubNav = ({ teamId }: { teamId: number }) => (

@@ -73,7 +73,7 @@ export const TeamsTable = () => {
         label={t("search")}
         onChange={(e) => setSearchTerm(e.target.value)}
       />
-      <p className="text-subtle text-sm">
+      <p className="text-sm text-subtle">
         {isFetching && totalFetched === 0
           ? t("loading")
           : `${t("showing_x_of_y", { x: totalFetched, y: totalRowCount })}`}
@@ -85,7 +85,7 @@ export const TeamsTable = () => {
 
       {(isPending || totalRowCount > 0) && (
         <div
-          className="border-subtle rounded-md border"
+          className="rounded-md border border-subtle"
           ref={tableContainerRef}
           onScroll={() => fetchMoreOnBottomReached(tableContainerRef.current)}
           style={{
@@ -107,7 +107,7 @@ export const TeamsTable = () => {
                   <Cell widthClassNames="w-auto">
                     <div className="flex items-center gap-2">
                       <Avatar size="sm" alt={team.name} imageSrc={team.logoUrl ?? undefined} />
-                      <span className="text-emphasis font-medium">{team.name}</span>
+                      <span className="font-medium text-emphasis">{team.name}</span>
                     </div>
                   </Cell>
                   <Cell>
