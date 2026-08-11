@@ -58,7 +58,7 @@ import {
 import { RejectBookingButton } from "./RejectBookingButton";
 import type { BookingItemProps } from "./types";
 
-// Shared with BookingListItemHeader below so the header cells line up with the row's columns.
+// Widths shared across this row's Time/Event/Source columns so they stay consistent.
 const COLUMN_CLASSNAMES = {
   time: "sm:min-w-48 hidden align-top ltr:pl-3 rtl:pr-6 sm:table-cell",
   event: "hidden sm:block sm:min-w-32 sm:max-w-40 align-top ltr:pl-2 rtl:pr-2",
@@ -1180,29 +1180,6 @@ const AssignmentReasonTooltip = ({
         {t(badgeTitle)}
       </Badge>
     </Tooltip>
-  );
-};
-
-// Column headers for the desktop row layout above - widths are shared via COLUMN_CLASSNAMES so
-// they stay aligned with BookingListItem's own columns without needing a real <table>.
-export const BookingListItemHeader = () => {
-  const { t } = useLocale();
-
-  return (
-    <div data-testid="booking-list-header" className="border-subtle bg-subtle hidden border-b sm:flex">
-      <div className={COLUMN_CLASSNAMES.time}>
-        <span className="text-subtle block py-2 text-xs font-medium uppercase leading-6">{t("time")}</span>
-      </div>
-      <div className="flex-1 px-4" />
-      <div className={COLUMN_CLASSNAMES.event}>
-        <span className="text-subtle block py-2 text-xs font-medium uppercase leading-6">
-          {t("event_type")}
-        </span>
-      </div>
-      <div className={COLUMN_CLASSNAMES.source}>
-        <span className="text-subtle block py-2 text-xs font-medium uppercase leading-6">{t("source")}</span>
-      </div>
-    </div>
   );
 };
 
