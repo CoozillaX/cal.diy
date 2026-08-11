@@ -6,7 +6,7 @@ import { _generateMetadata, getTranslate } from "app/_utils";
 import { cookies, headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import MembersView, { MembersCTA } from "~/teams/views/members-view";
-import { ShellMainAppDir } from "../../../ShellMainAppDir";
+import { ShellMainAppDir } from "../../../../ShellMainAppDir";
 
 export const generateMetadata = async ({ params }: { params: Promise<{ id: string }> }) =>
   await _generateMetadata(
@@ -14,7 +14,7 @@ export const generateMetadata = async ({ params }: { params: Promise<{ id: strin
     (t) => t("add_team_members_description"),
     undefined,
     undefined,
-    `/teams/${(await params).id}/members`
+    `/teams/${(await params).id}/edit/members`
   );
 
 const Page = async ({ params: _params }: PageProps) => {

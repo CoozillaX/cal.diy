@@ -12,7 +12,6 @@ import { TextField } from "@calcom/ui/components/form";
 import { DropdownActions, Table } from "@calcom/ui/components/table";
 import { keepPreviousData } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import EditTeamDialog from "~/teams/components/EditTeamDialog";
 
 const { Header, ColumnTitle, Body, Row, Cell } = Table;
 
@@ -32,7 +31,6 @@ export const TeamsTable = () => {
   const tableContainerRef = useRef<HTMLDivElement>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
-  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
 
   const { data, fetchNextPage, isFetching, isPending } = trpc.viewer.teams.listPaginated.useInfiniteQuery(
     {
@@ -118,26 +116,32 @@ export const TeamsTable = () => {
                   <Cell>{team.memberCount}</Cell>
                   <Cell widthClassNames="w-auto">
                     <div className="flex w-full justify-end">
-                      <DropdownActions
-                        actions={[
-                          ...(team.role && ADMIN_ROLES.includes(team.role)
-                            ? [
-                                {
-                                  id: "edit",
-                                  label: t("edit"),
-                                  icon: "pencil" as const,
-                                  onClick: () => setEditingTeam(team),
-                                },
-                              ]
-                            : []),
-                          {
-                            id: "members",
-                            label: t("members"),
-                            icon: "users",
-                            href: `/teams/${team.id}/members`,
-                          },
-                        ]}
-                      />
+                      {/* One entry per row: admins land on Profile (they can edit team
+                          settings there), everyone else lands on Members - both open the
+                          same tabbed area, so this is never actually two destinations. */}
+                      {team.role && ADMIN_ROLES.includes(team.role) ? (
+                        <DropdownActions
+                          actions={[
+                            {
+                              id: "edit",
+                              label: t("edit"),
+                              icon: "pencil",
+                              href: `/teams/${team.id}/edit/profile`,
+                            },
+                          ]}
+                        />
+                      ) : (
+                        <DropdownActions
+                          actions={[
+                            {
+                              id: "members",
+                              label: t("members"),
+                              icon: "users",
+                              href: `/teams/${team.id}/edit/members`,
+                            },
+                          ]}
+                        />
+                      )}
                     </div>
                   </Cell>
                 </Row>
@@ -146,12 +150,6 @@ export const TeamsTable = () => {
           </Table>
         </div>
       )}
-
-      <EditTeamDialog
-        team={editingTeam}
-        open={!!editingTeam}
-        onOpenChange={(open) => !open && setEditingTeam(null)}
-      />
     </div>
   );
 };

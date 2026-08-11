@@ -30,7 +30,7 @@ const CreateTeamDialog = ({
       await utils.viewer.teams.listPaginated.invalidate();
       form.reset();
       onOpenChange(false);
-      router.push(`/teams/${team.id}/members`);
+      router.push(`/teams/${team.id}/edit/members`);
     },
     onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
   });
