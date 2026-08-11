@@ -5,7 +5,6 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { MembershipRole, SchedulingType } from "@calcom/prisma/enums";
 import { Avatar } from "@calcom/ui/components/avatar";
 import { Badge } from "@calcom/ui/components/badge";
-import { Button } from "@calcom/ui/components/button";
 import { Checkbox, SelectField } from "@calcom/ui/components/form";
 import { Controller, useFormContext } from "react-hook-form";
 import type { EventTypeSetup, TeamMembers } from "../../EventType";
@@ -64,21 +63,6 @@ const EventTeamAssignmentTabWebWrapper = ({
     formMethods.setValue("hosts", nextHosts, { shouldDirty: true });
   };
 
-  // One-shot client-side action, not a persisted setting: checks every current team member as a
-  // host right now. Whoever it selected is just a normal, editable host list from that point on -
-  // there's no ongoing "keep this synced to the team" promise to keep, so nothing can drift out of
-  // sync with what the toggle implies the way a saved flag could.
-  const selectAllMembers = () => {
-    const nextHosts: Host[] = teamMembers.map((member) => ({
-      userId: member.id,
-      isFixed: schedulingType === SchedulingType.COLLECTIVE,
-      priority: DEFAULT_HOST_PRIORITY,
-      weight: DEFAULT_HOST_WEIGHT,
-      groupId: null,
-    }));
-    formMethods.setValue("hosts", nextHosts, { shouldDirty: true });
-  };
-
   return (
     <div className="stack-y-6">
       <Controller
@@ -106,16 +90,8 @@ const EventTeamAssignmentTabWebWrapper = ({
       />
 
       <div className="border-subtle rounded-lg border">
-        <div className="border-subtle flex items-center justify-between border-b px-4 py-3">
+        <div className="border-subtle border-b px-4 py-3">
           <p className="text-emphasis text-sm font-medium">{t("hosts")}</p>
-          <Button
-            type="button"
-            color="secondary"
-            size="sm"
-            disabled={teamMembers.length === 0}
-            onClick={selectAllMembers}>
-            {t("assign_all_team_members")}
-          </Button>
         </div>
         {teamMembers.length === 0 && <p className="text-subtle p-4 text-sm">{t("no_members_found")}</p>}
         {teamMembers.map((member, index) => (
