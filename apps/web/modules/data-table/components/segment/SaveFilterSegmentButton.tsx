@@ -1,6 +1,7 @@
 import { checkAdminOrOwner } from "@calcom/features/auth/lib/checkAdminOrOwner";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import type { FilterSegmentScope } from "@calcom/prisma/enums";
+import { MembershipRole } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import {
@@ -25,17 +26,9 @@ interface FormValues {
   teamId?: number;
 }
 
+const ADMIN_ROLES: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMIN];
+
 export function SaveFilterSegmentButton() {
-  const createSegmentMutation = {
-    mutate: (_args: Record<string, unknown>) => {},
-    mutateAsync: async (_args: Record<string, unknown>) => ({ id: "" }),
-  };
-  const updateSegmentMutation = {
-    mutate: (_args: Record<string, unknown>) => {},
-    mutateAsync: async (_args: Record<string, unknown>) => ({}),
-  };
-  const createSegment = (args: Record<string, unknown>) => createSegmentMutation.mutate(args);
-  const updateSegment = (args: Record<string, unknown>) => updateSegmentMutation.mutate(args);
   const { t } = useLocale();
   const utils = trpc.useUtils();
   const [isOpen, setIsOpen] = useState(false);
@@ -78,7 +71,31 @@ export function SaveFilterSegmentButton() {
     setSaveMode(selectedSegment && selectedSegment.type === "user" ? "update" : "create");
   }, [selectedSegment, isOpen]);
 
-  const teams = null as { id: number; name: string; slug: string | null }[] | null;
+  const { data: allTeams } = trpc.viewer.teams.list.useQuery(undefined, { enabled: isAdminOrOwner });
+  const teams = (allTeams || []).filter((team) => team.role && ADMIN_ROLES.includes(team.role));
+
+  const invalidateSegments = () => utils.viewer.filterSegments.list.invalidate({ tableIdentifier });
+
+  const createSegmentMutation = trpc.viewer.filterSegments.create.useMutation({
+    onSuccess: (segment) => {
+      invalidateSegments();
+      setSegmentId({ id: segment.id, type: "user" }, { ...segment, type: "user" });
+      showToast(t("filter_segment_saved"), "success");
+      setIsOpen(false);
+    },
+    onError: (err) => showToast(err.message || t("error_saving_filter_segment"), "error"),
+  });
+
+  const updateSegmentMutation = trpc.viewer.filterSegments.update.useMutation({
+    onSuccess: () => {
+      invalidateSegments();
+      showToast(t("filter_segment_updated"), "success");
+      setIsOpen(false);
+    },
+    onError: (err) => showToast(err.message || t("error_updating_filter_segment"), "error"),
+  });
+
+  const isPending = createSegmentMutation.isPending || updateSegmentMutation.isPending;
 
   const onSubmit = (values: FormValues) => {
     if (isTeamSegment && !selectedTeamId) {
@@ -99,7 +116,7 @@ export function SaveFilterSegmentButton() {
     if (saveMode === "update" && selectedSegment && selectedSegment.type === "user") {
       const scope = selectedSegment.scope;
       if (scope === "TEAM") {
-        updateSegment({
+        updateSegmentMutation.mutate({
           id: selectedSegment.id,
           scope,
           teamId: selectedSegment.teamId || 0,
@@ -107,7 +124,7 @@ export function SaveFilterSegmentButton() {
           ...segmentData,
         });
       } else {
-        updateSegment({
+        updateSegmentMutation.mutate({
           id: selectedSegment.id,
           scope,
           name: selectedSegment.name,
@@ -116,14 +133,14 @@ export function SaveFilterSegmentButton() {
       }
     } else {
       if (isTeamSegment) {
-        createSegment({
+        createSegmentMutation.mutate({
           ...segmentData,
           name: values.name,
           scope: "TEAM",
           teamId: selectedTeamId || 0,
         });
       } else {
-        createSegment({
+        createSegmentMutation.mutate({
           ...segmentData,
           name: values.name,
           scope: "USER",
@@ -223,7 +240,9 @@ export function SaveFilterSegmentButton() {
               <Button type="button" color="minimal" onClick={() => setIsOpen(false)}>
                 {t("cancel")}
               </Button>
-              <Button type="submit">{t("save")}</Button>
+              <Button type="submit" loading={isPending}>
+                {t("save")}
+              </Button>
             </DialogFooter>
           </div>
         </Form>

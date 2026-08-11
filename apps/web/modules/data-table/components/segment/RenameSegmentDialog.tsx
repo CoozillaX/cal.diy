@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/co
 import { Form, TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
 import { useForm } from "react-hook-form";
+import { useDataTable } from "~/data-table/hooks";
 
 type FormValues = {
   name: string;
@@ -24,9 +25,17 @@ export function RenameSegmentDialog({
       name: segment.name,
     },
   });
+  const { tableIdentifier } = useDataTable();
   const utils = trpc.useUtils();
 
-  const updateSegment = { mutate: (_args: Record<string, unknown>) => {}, isPending: false };
+  const updateSegment = trpc.viewer.filterSegments.update.useMutation({
+    onSuccess: () => {
+      utils.viewer.filterSegments.list.invalidate({ tableIdentifier });
+      showToast(t("filter_segment_updated"), "success");
+      onClose();
+    },
+    onError: (err) => showToast(err.message || t("error_updating_filter_segment"), "error"),
+  });
   const isPending = updateSegment.isPending;
 
   const handleSubmit = (data: FormValues) => {
@@ -35,7 +44,7 @@ export function RenameSegmentDialog({
     }
     if (segment.scope === "TEAM") {
       updateSegment.mutate({
-        ...segment,
+        id: segment.id,
         scope: "TEAM",
         teamId: segment.teamId ?? 0,
         name: data.name,
@@ -43,7 +52,7 @@ export function RenameSegmentDialog({
       return;
     }
     updateSegment.mutate({
-      ...segment,
+      id: segment.id,
       scope: "USER",
       name: data.name,
     });

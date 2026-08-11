@@ -27,12 +27,20 @@ export function DuplicateSegmentDialog({
       name: "",
     },
   });
-  const { setSegmentId } = useDataTable();
+  const { tableIdentifier, setSegmentId } = useDataTable();
   const utils = trpc.useUtils();
   const session = useSession();
   const isAdminOrOwner = checkAdminOrOwner(session.data?.user?.org?.role);
 
-  const createSegment = { mutate: (_args: Record<string, unknown>) => {}, isPending: false };
+  const createSegment = trpc.viewer.filterSegments.create.useMutation({
+    onSuccess: (created) => {
+      utils.viewer.filterSegments.list.invalidate({ tableIdentifier });
+      setSegmentId({ id: created.id, type: "user" }, { ...created, type: "user" });
+      showToast(t("filter_segment_duplicated"), "success");
+      onClose();
+    },
+    onError: (err) => showToast(err.message || t("error_duplicating_filter_segment"), "error"),
+  });
   const isPending = createSegment.isPending;
 
   const handleSubmit = (data: FormValues) => {

@@ -16,6 +16,7 @@ import { deploymentSetupRouter } from "./deploymentSetup/_router";
 import { eventTypesRouter } from "./eventTypes/_router";
 import { eventTypesRouter as heavyEventTypesRouter } from "./eventTypes/heavy/_router";
 import { feedbackRouter } from "./feedback/_router";
+import { filterSegmentsRouter } from "./filterSegments/_router";
 import { googleWorkspaceRouter } from "./googleWorkspace/_router";
 import { holidaysRouter } from "./holidays/_router";
 import { i18nRouter } from "./i18n/_router";
@@ -48,6 +49,7 @@ export const viewerRouter = router({
   i18n: i18nRouter,
   features: featureFlagRouter,
   feedback: feedbackRouter,
+  filterSegments: filterSegmentsRouter,
   users: userAdminRouter,
   oAuth: oAuthRouter,
   googleWorkspace: googleWorkspaceRouter,

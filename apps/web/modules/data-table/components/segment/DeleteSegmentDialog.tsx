@@ -14,9 +14,21 @@ export function DeleteSegmentDialog({
 }) {
   const { t } = useLocale();
   const utils = trpc.useUtils();
-  const { segmentId, setSegmentId } = useDataTable();
+  const { tableIdentifier, segmentId, setSegmentId } = useDataTable();
 
-  const deleteSegment = { mutate: (_args: Record<string, unknown>) => {}, isPending: false };
+  const deleteSegment = trpc.viewer.filterSegments.delete.useMutation({
+    onSuccess: () => {
+      utils.viewer.filterSegments.list.invalidate({ tableIdentifier });
+      // The segment being deleted might be the one currently applied - clear it so the
+      // table doesn't keep filtering by a segment that no longer exists.
+      if (segmentId && segmentId.type === "user" && segmentId.id === segment.id) {
+        setSegmentId(null);
+      }
+      showToast(t("filter_segment_deleted"), "success");
+      onClose();
+    },
+    onError: (err) => showToast(err.message || t("error_deleting_filter_segment"), "error"),
+  });
   const isPending = deleteSegment.isPending;
 
   const handleDelete = () => {
