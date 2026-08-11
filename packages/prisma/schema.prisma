@@ -649,6 +649,8 @@ model Team {
   outOfOfficeEntries TeamOutOfOfficeEntry[]
   holidaySettings    TeamHolidaySettings?
 
+  permissionSettings TeamPermissionSetting[]
+
   @@unique([slug, parentId])
   @@index([parentId])
 }
@@ -2426,6 +2428,23 @@ model RolePermission {
   @@index([roleId])
   // TODO: come back to this with indexs.
   @@index([action])
+}
+
+// Per-team override of the minimum MembershipRole required for a fixed catalog of actions
+// (see packages/features/teams/lib/teamPermissions.ts). Distinct from Role/RolePermission above,
+// which model arbitrary named custom roles - this is a simple 3-tier (member/admin/owner)
+// minimum-role setting per action, with no row meaning "use the catalog default".
+model TeamPermissionSetting {
+  id            String         @id @default(cuid())
+  teamId        Int
+  team          Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  permissionKey String
+  minimumRole   MembershipRole
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([teamId, permissionKey])
+  @@index([teamId])
 }
 
 enum BookingAuditType {
