@@ -44,6 +44,10 @@ const TeamsTableContent = ({ teams, isPending }: { teams: Team[]; isPending: boo
         id: "name",
         accessorKey: "name",
         header: t("team"),
+        // Every other column is a fixed width - this one absorbs the remaining space so the
+        // row's total width actually matches the toolbar/header above it instead of leaving a
+        // gap when the fixed columns don't add up to the container width.
+        meta: { autoWidth: true },
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             <Avatar size="sm" alt={row.original.name} imageSrc={row.original.logoUrl ?? undefined} />
@@ -55,6 +59,7 @@ const TeamsTableContent = ({ teams, isPending }: { teams: Team[]; isPending: boo
         id: "role",
         accessorKey: "role",
         header: t("role"),
+        size: 120,
         cell: ({ row }) =>
           row.original.role && (
             <Badge variant={roleBadgeVariant(row.original.role)}>{t(row.original.role.toLowerCase())}</Badge>
@@ -64,11 +69,13 @@ const TeamsTableContent = ({ teams, isPending }: { teams: Team[]; isPending: boo
         id: "memberCount",
         accessorKey: "memberCount",
         header: t("members"),
+        size: 100,
         cell: ({ row }) => <span className="text-default text-sm">{row.original.memberCount}</span>,
       },
       {
         id: "actions",
         header: "",
+        size: 140,
         enableSorting: false,
         cell: ({ row }) => (
           <Link href={`/teams/${row.original.id}/members`}>
@@ -85,6 +92,7 @@ const TeamsTableContent = ({ teams, isPending }: { teams: Team[]; isPending: boo
   const table = useReactTable({
     data: pagedTeams,
     columns,
+    defaultColumn: { size: 150 },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     manualPagination: true,
