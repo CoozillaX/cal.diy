@@ -394,9 +394,10 @@ function BookingListItem(booking: BookingItemProps) {
             </div>
 
             <div className="cursor-pointer py-4">
+              {/* Desktop shows the event type name in its own "source" column instead - see below */}
               {booking.eventType?.title && (
                 <div
-                  className="text-subtle max-w-10/12 sm:max-w-56 truncate text-xs leading-5 md:max-w-full"
+                  className="text-subtle max-w-10/12 truncate text-xs leading-5 sm:hidden"
                   title={booking.eventType.title}>
                   {booking.eventType.title}
                 </div>
@@ -473,6 +474,28 @@ function BookingListItem(booking: BookingItemProps) {
             </div>
           </ConditionalLink>
         </div>
+        {(booking.eventType?.title || booking.eventType?.team) && (
+          <div
+            data-testid="booking-source"
+            className="hidden sm:block sm:min-w-32 sm:max-w-40 align-top ltr:pl-2 rtl:pr-2">
+            <ConditionalLink onClick={onClick} bookingLink={bookingLink}>
+              <div className="stack-y-1 cursor-pointer py-4">
+                {booking.eventType?.title && (
+                  <div
+                    className="text-subtle max-w-full truncate text-sm leading-6"
+                    title={booking.eventType.title}>
+                    {booking.eventType.title}
+                  </div>
+                )}
+                {booking.eventType?.team && (
+                  <Badge className="max-w-full" variant="blue" startIcon="users">
+                    <span className="truncate">{booking.eventType.team.name}</span>
+                  </Badge>
+                )}
+              </div>
+            </ConditionalLink>
+          </div>
+        )}
         <div className="flex flex-col flex-wrap items-end justify-end gap-2 py-4 pl-4 text-right text-sm font-medium ltr:pr-4 rtl:pl-4 sm:flex-shrink-0 sm:flex-row sm:flex-nowrap sm:items-start sm:pl-0">
           {shouldShowPendingActions(actionContext) && (
             <div className="flex space-x-2 rtl:space-x-reverse">
@@ -570,11 +593,7 @@ const BookingItemBadges = ({
 
   return (
     <div className="hidden h-9 flex-row items-center pb-4 pl-6 sm:flex">
-      {booking.eventType?.team && (
-        <Badge className="ltr:mr-2 rtl:ml-2" variant="blue" startIcon="users">
-          {booking.eventType.team.name}
-        </Badge>
-      )}
+      {/* Team is shown in its own "source" column on desktop - see the row above */}
       {isPending && (
         <Badge className="ltr:mr-2 rtl:ml-2" variant="orange">
           {t("unconfirmed")}
