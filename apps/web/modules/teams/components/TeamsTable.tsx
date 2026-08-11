@@ -7,9 +7,10 @@ import type { RouterOutputs } from "@calcom/trpc/react";
 import { trpc } from "@calcom/trpc/react";
 import { Avatar } from "@calcom/ui/components/avatar";
 import { Badge } from "@calcom/ui/components/badge";
+import { Button } from "@calcom/ui/components/button";
 import { EmptyScreen } from "@calcom/ui/components/empty-screen";
 import { TextField } from "@calcom/ui/components/form";
-import { DropdownActions, Table } from "@calcom/ui/components/table";
+import { Table } from "@calcom/ui/components/table";
 import { keepPreviousData } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -118,28 +119,25 @@ export const TeamsTable = () => {
                     <div className="flex w-full justify-end">
                       {/* One entry per row: admins land on Profile (they can edit team
                           settings there), everyone else lands on Members - both open the
-                          same tabbed area, so this is never actually two destinations. */}
+                          same tabbed area, so a single plain button covers it - no need for
+                          a dropdown when there's never more than one action. */}
                       {team.role && ADMIN_ROLES.includes(team.role) ? (
-                        <DropdownActions
-                          actions={[
-                            {
-                              id: "edit",
-                              label: t("edit"),
-                              icon: "pencil",
-                              href: `/teams/${team.id}/edit/profile`,
-                            },
-                          ]}
+                        <Button
+                          type="button"
+                          color="secondary"
+                          variant="icon"
+                          StartIcon="pencil"
+                          href={`/teams/${team.id}/edit/profile`}
+                          aria-label={t("edit")}
                         />
                       ) : (
-                        <DropdownActions
-                          actions={[
-                            {
-                              id: "members",
-                              label: t("members"),
-                              icon: "users",
-                              href: `/teams/${team.id}/edit/members`,
-                            },
-                          ]}
+                        <Button
+                          type="button"
+                          color="secondary"
+                          variant="icon"
+                          StartIcon="users"
+                          href={`/teams/${team.id}/edit/members`}
+                          aria-label={t("members")}
                         />
                       )}
                     </div>
