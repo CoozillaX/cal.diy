@@ -5,11 +5,9 @@ import { MembershipRole } from "@calcom/prisma/enums";
 import type { RouterOutputs } from "@calcom/trpc/react";
 import { Avatar } from "@calcom/ui/components/avatar";
 import { Badge } from "@calcom/ui/components/badge";
-import { Button } from "@calcom/ui/components/button";
 import { EmptyScreen } from "@calcom/ui/components/empty-screen";
 import { TextField } from "@calcom/ui/components/form";
-import { Table } from "@calcom/ui/components/table";
-import Link from "next/link";
+import { DropdownActions, Table } from "@calcom/ui/components/table";
 import { useMemo, useState } from "react";
 import EditTeamDialog from "~/teams/components/EditTeamDialog";
 
@@ -74,22 +72,27 @@ export const TeamsTable = ({ teams, isPending }: { teams: Team[]; isPending: boo
                 </Cell>
                 <Cell>{team.memberCount}</Cell>
                 <Cell widthClassNames="w-auto">
-                  <div className="flex w-full justify-end gap-2">
-                    {team.role && ADMIN_ROLES.includes(team.role) && (
-                      <Button
-                        type="button"
-                        color="secondary"
-                        size="sm"
-                        StartIcon="pencil"
-                        onClick={() => setEditingTeam(team)}>
-                        {t("edit")}
-                      </Button>
-                    )}
-                    <Link href={`/teams/${team.id}/members`}>
-                      <Button type="button" color="secondary" size="sm" StartIcon="users">
-                        {t("members")}
-                      </Button>
-                    </Link>
+                  <div className="flex w-full justify-end">
+                    <DropdownActions
+                      actions={[
+                        {
+                          id: "members",
+                          label: t("members"),
+                          icon: "users",
+                          href: `/teams/${team.id}/members`,
+                        },
+                        ...(team.role && ADMIN_ROLES.includes(team.role)
+                          ? [
+                              {
+                                id: "edit",
+                                label: t("edit"),
+                                icon: "pencil" as const,
+                                onClick: () => setEditingTeam(team),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
                   </div>
                 </Cell>
               </Row>
