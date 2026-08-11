@@ -6,7 +6,7 @@ import { useState } from "react";
 import CreateTeamOOOModal from "~/teams/components/CreateTeamOOOModal";
 import TeamHolidaysSection from "~/teams/components/TeamHolidaysSection";
 import TeamOOOEntriesList from "~/teams/components/TeamOOOEntriesList";
-import TeamSubNav from "~/teams/components/TeamSubNav";
+import TeamSettingsLayout from "~/teams/components/TeamSettingsLayout";
 import { useCanManageTeam } from "~/teams/hooks/useCanManageTeam";
 
 /** Content only - the page (rendered inside the main app shell) owns the heading and renders
@@ -16,9 +16,7 @@ const TimeOffView = ({ teamId }: { teamId: number }) => {
   const canManage = useCanManageTeam(teamId);
 
   return (
-    <>
-      <TeamSubNav teamId={teamId} />
-
+    <TeamSettingsLayout teamId={teamId}>
       <div className="space-y-6">
         <div>
           <h3 className="mb-2 font-semibold text-emphasis">{t("team_closures")}</h3>
@@ -28,7 +26,7 @@ const TimeOffView = ({ teamId }: { teamId: number }) => {
 
         <TeamHolidaysSection teamId={teamId} canManage={canManage} />
       </div>
-    </>
+    </TeamSettingsLayout>
   );
 };
 

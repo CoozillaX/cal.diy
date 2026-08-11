@@ -4,16 +4,13 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { MembershipRole } from "@calcom/prisma/enums";
 import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
-import { ConfirmationDialogContent, Dialog } from "@calcom/ui/components/dialog";
 import { EmptyScreen } from "@calcom/ui/components/empty-screen";
 import { SkeletonContainer, SkeletonText } from "@calcom/ui/components/skeleton";
-import { showToast } from "@calcom/ui/components/toast";
-import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 import InviteMemberDialog from "~/teams/components/InviteMemberDialog";
 import MemberListItem from "~/teams/components/MemberListItem";
-import TeamSubNav from "~/teams/components/TeamSubNav";
+import TeamSettingsLayout from "~/teams/components/TeamSettingsLayout";
 import { useCanManageTeam } from "~/teams/hooks/useCanManageTeam";
 
 const ADMIN_ROLES: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMIN];
@@ -22,33 +19,16 @@ const ADMIN_ROLES: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMI
  * owns the heading and renders MembersCTA separately as the shell's CTA slot. */
 const MembersView = ({ teamId }: { teamId: number }) => {
   const { t } = useLocale();
-  const router = useRouter();
   const { data: sessionData } = useSession();
-  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 
   const { data: members, isPending } = trpc.viewer.teams.listMembers.useQuery({ teamId });
 
   const currentUserId = sessionData?.user?.id;
   const currentUserMembership = members?.find((member) => member.user.id === currentUserId);
   const canManage = !!currentUserMembership && ADMIN_ROLES.includes(currentUserMembership.role);
-  const isOwner = currentUserMembership?.role === MembershipRole.OWNER;
-
-  const goToTeamsList = () => router.push("/teams");
-
-  const deleteMutation = trpc.viewer.teams.delete.useMutation({
-    onSuccess: goToTeamsList,
-    onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
-  });
-
-  const leaveMutation = trpc.viewer.teams.leaveTeam.useMutation({
-    onSuccess: goToTeamsList,
-    onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
-  });
 
   return (
-    <>
-      <TeamSubNav teamId={teamId} />
-
+    <TeamSettingsLayout teamId={teamId}>
       {isPending && (
         <SkeletonContainer>
           <SkeletonText className="mb-4 h-8 w-full" />
@@ -78,38 +58,7 @@ const MembersView = ({ teamId }: { teamId: number }) => {
           ))}
         </div>
       )}
-
-      {currentUserMembership && (
-        <div className="mt-6 flex items-center justify-between rounded-lg border border-subtle border-dashed p-4">
-          <p className="text-sm text-subtle">
-            {isOwner ? t("team_deletion_cannot_be_undone") : t("leave_team_confirmation_message")}
-          </p>
-          <Button type="button" color="destructive" onClick={() => setLeaveDialogOpen(true)}>
-            {isOwner ? t("disband_team") : t("leave_team")}
-          </Button>
-        </div>
-      )}
-
-      <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
-        <ConfirmationDialogContent
-          variety="danger"
-          title={isOwner ? t("disband_team") : t("leave_team")}
-          confirmBtnText={isOwner ? t("disband_team") : t("confirm_leave_team")}
-          isPending={isOwner ? deleteMutation.isPending : leaveMutation.isPending}
-          onConfirm={() => {
-            if (isOwner) {
-              deleteMutation.mutate({ teamId });
-            } else {
-              leaveMutation.mutate({ teamId });
-            }
-            setLeaveDialogOpen(false);
-          }}>
-          <p className="text-sm text-subtle">
-            {isOwner ? t("disband_team_confirmation_message") : t("leave_team_confirmation_message")}
-          </p>
-        </ConfirmationDialogContent>
-      </Dialog>
-    </>
+    </TeamSettingsLayout>
   );
 };
 
