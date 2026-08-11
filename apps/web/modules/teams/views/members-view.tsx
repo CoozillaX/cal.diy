@@ -13,16 +13,10 @@ import { useSession } from "next-auth/react";
 import { useState } from "react";
 import InviteMemberDialog from "~/teams/components/InviteMemberDialog";
 import MemberListItem from "~/teams/components/MemberListItem";
+import TeamSubNav from "~/teams/components/TeamSubNav";
+import { useCanManageTeam } from "~/teams/hooks/useCanManageTeam";
 
 const ADMIN_ROLES: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMIN];
-
-const useCanManage = (teamId: number) => {
-  const { data: sessionData } = useSession();
-  const { data: members } = trpc.viewer.teams.listMembers.useQuery({ teamId });
-  const currentUserId = sessionData?.user?.id;
-  const currentUserMembership = members?.find((member) => member.user.id === currentUserId);
-  return !!currentUserMembership && ADMIN_ROLES.includes(currentUserMembership.role);
-};
 
 /** Content only - the page (rendered inside the main app shell, not the settings shell)
  * owns the heading and renders MembersCTA separately as the shell's CTA slot. */
@@ -53,6 +47,8 @@ const MembersView = ({ teamId }: { teamId: number }) => {
 
   return (
     <>
+      <TeamSubNav teamId={teamId} />
+
       {isPending && (
         <SkeletonContainer>
           <SkeletonText className="mb-4 h-8 w-full" />
@@ -69,7 +65,7 @@ const MembersView = ({ teamId }: { teamId: number }) => {
       )}
 
       {!isPending && members && members.length > 0 && (
-        <div className="border-subtle rounded-lg border">
+        <div className="rounded-lg border border-subtle">
           {members.map((member, index) => (
             <MemberListItem
               key={member.user.id}
@@ -84,8 +80,8 @@ const MembersView = ({ teamId }: { teamId: number }) => {
       )}
 
       {currentUserMembership && (
-        <div className="border-subtle mt-6 flex items-center justify-between rounded-lg border border-dashed p-4">
-          <p className="text-subtle text-sm">
+        <div className="mt-6 flex items-center justify-between rounded-lg border border-subtle border-dashed p-4">
+          <p className="text-sm text-subtle">
             {isOwner ? t("team_deletion_cannot_be_undone") : t("leave_team_confirmation_message")}
           </p>
           <Button type="button" color="destructive" onClick={() => setLeaveDialogOpen(true)}>
@@ -108,7 +104,7 @@ const MembersView = ({ teamId }: { teamId: number }) => {
             }
             setLeaveDialogOpen(false);
           }}>
-          <p className="text-subtle text-sm">
+          <p className="text-sm text-subtle">
             {isOwner ? t("disband_team_confirmation_message") : t("leave_team_confirmation_message")}
           </p>
         </ConfirmationDialogContent>
@@ -119,7 +115,7 @@ const MembersView = ({ teamId }: { teamId: number }) => {
 
 export const MembersCTA = ({ teamId }: { teamId: number }) => {
   const { t } = useLocale();
-  const canManage = useCanManage(teamId);
+  const canManage = useCanManageTeam(teamId);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   if (!canManage) return null;
