@@ -578,6 +578,69 @@ export class MembershipRepository {
     return teams;
   }
 
+  static async findAllAcceptedTeamMembershipsPaginated({
+    userId,
+    searchTerm,
+    cursor,
+    limit,
+    where,
+  }: {
+    userId: number;
+    searchTerm?: string | null;
+    cursor?: number | null;
+    limit?: number | null;
+    where?: Prisma.MembershipWhereInput;
+  }) {
+    const trimmedSearchTerm = searchTerm?.trim();
+    const teamWhere: Prisma.TeamWhereInput = {
+      members: {
+        some: {
+          userId,
+          accepted: true,
+          ...(where ?? {}),
+        },
+      },
+      ...(trimmedSearchTerm ? { name: { contains: trimmedSearchTerm, mode: "insensitive" } } : {}),
+    };
+
+    const hasLimit = limit !== undefined && limit !== null;
+    const take = hasLimit ? limit + 1 : undefined; // +1 lets us detect "has more" for the cursor
+
+    const teams = await prisma.team.findMany({
+      where: teamWhere,
+      cursor: cursor ? { id: cursor } : undefined,
+      skip: cursor ? 1 : 0,
+      ...(take !== undefined ? { take } : {}),
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logoUrl: true,
+        members: {
+          where: { userId },
+          select: { role: true },
+          take: 1,
+        },
+        _count: {
+          select: {
+            members: { where: { accepted: true } },
+          },
+        },
+      },
+    });
+
+    if (!hasLimit) {
+      return { teams, nextCursor: undefined, total: teams.length };
+    }
+
+    const total = await prisma.team.count({ where: teamWhere });
+    const hasMore = teams.length > limit;
+    const items = hasMore ? teams.slice(0, limit) : teams;
+    const nextCursor = hasMore ? items[items.length - 1].id : undefined;
+    return { teams: items, nextCursor, total };
+  }
+
   async findAllByUserId({
     userId,
     filters,

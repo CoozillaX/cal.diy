@@ -39,7 +39,7 @@ const EditTeamDialog = ({
 
   const updateMutation = trpc.viewer.teams.update.useMutation({
     onSuccess: async () => {
-      await utils.viewer.teams.list.invalidate();
+      await utils.viewer.teams.listPaginated.invalidate();
       showToast(t("team_updated_successfully"), "success");
       onOpenChange(false);
     },

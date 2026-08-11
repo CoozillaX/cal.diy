@@ -16,14 +16,13 @@ const TeamsView = () => {
   const { t } = useLocale();
   const utils = trpc.useUtils();
 
-  const { data: teams, isPending: teamsPending } = trpc.viewer.teams.list.useQuery();
   const { data: pendingInvites, isPending: invitesPending } =
     trpc.viewer.teams.listMyPendingInvites.useQuery();
 
   const acceptInviteMutation = trpc.viewer.teams.acceptInvite.useMutation({
     onSuccess: async () => {
       await Promise.all([
-        utils.viewer.teams.list.invalidate(),
+        utils.viewer.teams.listPaginated.invalidate(),
         utils.viewer.teams.listMyPendingInvites.invalidate(),
       ]);
       showToast(t("success"), "success");
@@ -61,7 +60,7 @@ const TeamsView = () => {
       )}
 
       <NoSSR>
-        <TeamsTable teams={teams ?? []} isPending={teamsPending} />
+        <TeamsTable />
       </NoSSR>
     </>
   );

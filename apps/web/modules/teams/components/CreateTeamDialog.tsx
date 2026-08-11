@@ -27,7 +27,7 @@ const CreateTeamDialog = ({
 
   const createMutation = trpc.viewer.teams.create.useMutation({
     onSuccess: async (team) => {
-      await utils.viewer.teams.list.invalidate();
+      await utils.viewer.teams.listPaginated.invalidate();
       form.reset();
       onOpenChange(false);
       router.push(`/teams/${team.id}/members`);

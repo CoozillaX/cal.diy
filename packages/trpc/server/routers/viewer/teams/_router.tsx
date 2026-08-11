@@ -8,6 +8,7 @@ import { ZGetInputSchema } from "./get.schema";
 import { ZInviteInputSchema } from "./invite.schema";
 import { ZLeaveTeamInputSchema } from "./leaveTeam.schema";
 import { ZListMembersInputSchema } from "./listMembers.schema";
+import { ZListPaginatedInputSchema } from "./listPaginated.schema";
 import { ZRemoveMemberInputSchema } from "./removeMember.schema";
 import { ZUpdateInputSchema } from "./update.schema";
 
@@ -31,6 +32,13 @@ export const teamsRouter = router({
     const { listHandler } = await import("./list.handler");
 
     return listHandler({ ctx });
+  }),
+
+  // List teams the user is a member of, paginated + searchable (used by the teams list UI)
+  listPaginated: authedProcedure.input(ZListPaginatedInputSchema).query(async ({ ctx, input }) => {
+    const { listPaginatedHandler } = await import("./listPaginated.handler");
+
+    return listPaginatedHandler({ ctx, input });
   }),
 
   // List the current user's own pending (not yet accepted) invites, across all teams

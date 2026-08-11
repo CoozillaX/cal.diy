@@ -66,6 +66,39 @@ export class TeamService {
     }));
   }
 
+  async listTeamsForUserPaginated({
+    userId,
+    searchTerm,
+    cursor,
+    limit,
+  }: {
+    userId: number;
+    searchTerm?: string | null;
+    cursor?: number | null;
+    limit: number;
+  }) {
+    const { teams, nextCursor, total } = await MembershipRepository.findAllAcceptedTeamMembershipsPaginated({
+      userId,
+      searchTerm,
+      cursor,
+      limit,
+      where: { team: { isOrganization: false } },
+    });
+
+    return {
+      teams: teams.map(({ id, name, slug, logoUrl, members, _count }) => ({
+        id,
+        name,
+        slug,
+        logoUrl,
+        role: members[0]?.role ?? null,
+        memberCount: _count.members,
+      })),
+      nextCursor,
+      total,
+    };
+  }
+
   async updateTeam({ teamId, userId, data }: { teamId: number; userId: number; data: TeamUpdateData }) {
     await this.assertIsTeamAdmin({ teamId, userId });
 
