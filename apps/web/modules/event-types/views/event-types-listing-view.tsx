@@ -201,7 +201,7 @@ const Item = ({
           {`/${group.profile.slug}/${type.slug}`}
         </small>
       ) : null}
-      {!isManagedEventType && type.hidden && (
+      {!isManagedEventType && !type.teamId && type.hidden && (
         <span className="ml-2 text-gray-400 text-sm sm:hidden">{t("hidden")}</span>
       )}
       {readOnly && (
@@ -245,7 +245,7 @@ const Item = ({
                   {`/${group.profile.slug}/${type.slug}`}
                 </small>
               ) : null}
-              {!isManagedEventType && type.hidden && (
+              {!isManagedEventType && !type.teamId && type.hidden && (
                 <span className="ml-2 text-gray-400 text-sm sm:hidden">{t("hidden")}</span>
               )}
               {readOnly && (
@@ -594,7 +594,7 @@ export const InfiniteEventTypeList = ({
                           />
                         )}
                         <div className="flex items-center justify-between space-x-2 rtl:space-x-reverse">
-                          {!isManagedEventType && (
+                          {!isManagedEventType && !type.teamId && (
                             <>
                               {type.hidden && <span className="text-gray-400 text-sm">{t("hidden")}</span>}
                               <Tooltip
@@ -833,7 +833,7 @@ export const InfiniteEventTypeList = ({
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuSeparator />
-                          {!isManagedEventType && (
+                          {!isManagedEventType && !type.teamId && (
                             <div className="flex h-9 cursor-pointer flex-row items-center justify-between rounded-b-lg px-4 py-2 transition hover:bg-subtle">
                               <Skeleton
                                 as={Label}

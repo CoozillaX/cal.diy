@@ -79,7 +79,11 @@ function EventTypeSingleLayout({
 
   const isManagedEventType = false;
   const isChildrenManagedEventType = false;
-  const shouldLockDisableProps = (_field: string) => ({ disabled: false, LockedIcon: false as const, isLocked: false });
+  const shouldLockDisableProps = (_field: string) => ({
+    disabled: false,
+    LockedIcon: false as const,
+    isLocked: false,
+  });
   const shouldLockIndicator = (_field: string) => false;
   const EventTypeTabs = tabsNavigation;
   const permalink = `${bookerUrl}/${
@@ -112,7 +116,7 @@ function EventTypeSingleLayout({
       }
       CTA={
         <div className="flex items-center justify-end">
-          {!formMethods.getValues("metadata")?.managedEventConfig && (
+          {!team && !formMethods.getValues("metadata")?.managedEventConfig && (
             <>
               <div
                 className={classNames(
@@ -252,22 +256,26 @@ function EventTypeSingleLayout({
                   </DropdownItem>
                 </DropdownMenuItem>
               )}
-              <DropdownMenuSeparator />
-              <div className="flex h-9 cursor-pointer flex-row items-center justify-between px-4 py-2 transition hover:bg-subtle">
-                <Skeleton
-                  as={Label}
-                  htmlFor="hiddenSwitch"
-                  className="mt-2 inline cursor-pointer self-center pr-2">
-                  {formMethods.watch("hidden") ? t("show_eventtype_on_profile") : t("hide_from_profile")}
-                </Skeleton>
-                <Switch
-                  id="hiddenSwitch"
-                  checked={!formMethods.watch("hidden")}
-                  onCheckedChange={(e) => {
-                    formMethods.setValue("hidden", !e, { shouldDirty: true });
-                  }}
-                />
-              </div>
+              {!team && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="flex h-9 cursor-pointer flex-row items-center justify-between px-4 py-2 transition hover:bg-subtle">
+                    <Skeleton
+                      as={Label}
+                      htmlFor="hiddenSwitch"
+                      className="mt-2 inline cursor-pointer self-center pr-2">
+                      {formMethods.watch("hidden") ? t("show_eventtype_on_profile") : t("hide_from_profile")}
+                    </Skeleton>
+                    <Switch
+                      id="hiddenSwitch"
+                      checked={!formMethods.watch("hidden")}
+                      onCheckedChange={(e) => {
+                        formMethods.setValue("hidden", !e, { shouldDirty: true });
+                      }}
+                    />
+                  </div>
+                </>
+              )}
             </DropdownMenuContent>
           </Dropdown>
           <div className="border-default border-l-2" />
