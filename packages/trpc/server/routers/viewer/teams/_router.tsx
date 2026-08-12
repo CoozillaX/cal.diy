@@ -5,6 +5,7 @@ import { ZChangeMemberRoleInputSchema } from "./changeMemberRole.schema";
 import { ZCreateInputSchema } from "./create.schema";
 import { ZDeleteInputSchema } from "./delete.schema";
 import { ZGetInputSchema } from "./get.schema";
+import { ZGetPermissionSettingsInputSchema } from "./getPermissionSettings.schema";
 import { ZHolidaySettingsInputSchema } from "./holidaySettings.schema";
 import { ZHolidayToggleInputSchema } from "./holidayToggle.schema";
 import { ZHolidayUpdateSettingsInputSchema } from "./holidayUpdateSettings.schema";
@@ -17,6 +18,7 @@ import { ZOOODeleteInputSchema } from "./oooDelete.schema";
 import { ZOOOListInputSchema } from "./oooList.schema";
 import { ZRemoveMemberInputSchema } from "./removeMember.schema";
 import { ZUpdateInputSchema } from "./update.schema";
+import { ZUpdatePermissionSettingsInputSchema } from "./updatePermissionSettings.schema";
 
 export const teamsRouter = router({
   // Create a new team
@@ -153,4 +155,22 @@ export const teamsRouter = router({
 
     return holidayToggleHandler({ ctx, input });
   }),
+
+  // Get the team's per-action minimum-role permission matrix (any accepted member can view)
+  getPermissionSettings: authedProcedure
+    .input(ZGetPermissionSettingsInputSchema)
+    .query(async ({ ctx, input }) => {
+      const { getPermissionSettingsHandler } = await import("./getPermissionSettings.handler");
+
+      return getPermissionSettingsHandler({ ctx, input });
+    }),
+
+  // Update the team's per-action minimum-role permission matrix (team owner only)
+  updatePermissionSettings: authedProcedure
+    .input(ZUpdatePermissionSettingsInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { updatePermissionSettingsHandler } = await import("./updatePermissionSettings.handler");
+
+      return updatePermissionSettingsHandler({ ctx, input });
+    }),
 });
