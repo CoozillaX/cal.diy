@@ -292,7 +292,11 @@ export function BookingActionsDropdown({
   const baseEditEventActions = getEditEventActions(actionContext);
   // Only the actions with a catalog entry get a team-permission check - reassign has no live
   // handler to enforce it server-side (see teamPermissions.ts), so it's left alone here too.
+  // "reschedule" (direct edit) shares BOOKING_REQUEST_RESCHEDULE with "reschedule_request" (ask
+  // organizer) - both let a team member change someone else's booking time, just with a different
+  // amount of organizer involvement, so they're gated at the same bar.
   const editActionPermissionKeys: Partial<Record<string, TeamPermissionKey>> = {
+    reschedule: TEAM_PERMISSIONS.BOOKING_REQUEST_RESCHEDULE,
     change_location: TEAM_PERMISSIONS.BOOKING_EDIT_LOCATION,
     add_members: TEAM_PERMISSIONS.BOOKING_ADD_GUESTS,
     reschedule_request: TEAM_PERMISSIONS.BOOKING_REQUEST_RESCHEDULE,
