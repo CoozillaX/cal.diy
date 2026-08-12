@@ -28,6 +28,7 @@ import { handlePayment } from "@calcom/features/bookings/lib/handlePayment";
 import { handleWebhookTrigger } from "@calcom/features/bookings/lib/handleWebhookTrigger";
 import { isEventTypeLoggingEnabled } from "@calcom/features/bookings/lib/isEventTypeLoggingEnabled";
 import type { BookingEmailAndSmsTasker } from "@calcom/features/bookings/lib/tasker/BookingEmailAndSmsTasker";
+import { BookingAccessService } from "@calcom/features/bookings/services/BookingAccessService";
 import type { BuiltCalendarEvent } from "@calcom/features/CalendarEventBuilder";
 import { CalendarEventBuilder } from "@calcom/features/CalendarEventBuilder";
 import { getSpamCheckService } from "@calcom/features/di/watchlist/containers/SpamCheckService.container";
@@ -39,8 +40,10 @@ import { getUsernameList } from "@calcom/features/eventtypes/lib/defaultEvents";
 import { getEventName, updateHostInEventName } from "@calcom/features/eventtypes/lib/eventNaming";
 import { getFullName } from "@calcom/features/form-builder/utils";
 import type { HashedLinkService } from "@calcom/features/hashedLink/lib/service/HashedLinkService";
+import { MembershipRepository } from "@calcom/features/membership/repositories/MembershipRepository";
 import { ProfileRepository } from "@calcom/features/profile/repositories/ProfileRepository";
 import { handleAnalyticsEvents } from "@calcom/features/tasker/tasks/analytics/handleAnalyticsEvents";
+import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import type { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 import { UsersRepository } from "@calcom/features/users/users.repository";
 import type { GetSubscriberOptions } from "@calcom/features/webhooks/lib/getWebhooks";
@@ -436,10 +439,12 @@ async function validateRescheduleRestrictions({
   rescheduleUid,
   userId,
   eventType,
+  prismaClient,
 }: {
   rescheduleUid: string | null | undefined;
   userId: number | null;
   eventType: { seatsPerTimeSlot: number | null; minimumRescheduleNotice: number | null } | null;
+  prismaClient: PrismaClient;
 }): Promise<void> {
   if (!rescheduleUid || !eventType) {
     return; // Not a reschedule, skip validation
@@ -461,6 +466,32 @@ async function validateRescheduleRestrictions({
     // Check if user is the organizer
     const isUserOrganizer =
       userId && originalRescheduledBooking.userId && userId === originalRescheduledBooking.userId;
+
+    // Guest/attendee self-reschedule (no login, or a logged-in attendee with no team ties) must
+    // keep working exactly as before - this only gates a *team member* who isn't the
+    // organizer/host, i.e. staff directly rescheduling someone else's booking on the team's
+    // behalf, mirroring the equivalent branch in handleCancelBooking.ts.
+    const teamId = originalRescheduledBooking.eventType?.team?.id;
+    if (!isUserOrganizer && userId && userId > 0 && teamId) {
+      const membershipRepository = new MembershipRepository();
+      const membership = await membershipRepository.findUniqueByUserIdAndTeamId({ userId, teamId });
+
+      if (membership?.accepted) {
+        const bookingAccessService = new BookingAccessService(prismaClient);
+        const hasTeamPermission = await bookingAccessService.doesUserIdHaveAccessToBooking({
+          userId,
+          bookingId: originalRescheduledBooking.id,
+          permission: TEAM_PERMISSIONS.BOOKING_REQUEST_RESCHEDULE,
+        });
+
+        if (!hasTeamPermission) {
+          throw new HttpError({
+            statusCode: 403,
+            message: "You are not allowed to reschedule this booking",
+          });
+        }
+      }
+    }
 
     // Check minimum reschedule notice (only for non-organizers)
     const { minimumRescheduleNotice } = originalRescheduledBooking.eventType || {};
@@ -535,6 +566,7 @@ async function handler(
           minimumRescheduleNotice: eventType.minimumRescheduleNotice ?? null,
         }
       : null,
+    prismaClient: deps.prismaClient,
   });
 
   const bookingDataSchema = bookingDataSchemaGetter({
