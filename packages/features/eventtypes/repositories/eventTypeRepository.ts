@@ -1339,6 +1339,7 @@ export class EventTypeRepository implements IEventTypesRepository {
             createdAt: true,
             weight: true,
             priority: true,
+            ignoreTimeConflicts: true,
             groupId: true,
             user: {
               select: {
@@ -1420,6 +1421,7 @@ export class EventTypeRepository implements IEventTypesRepository {
                 id: true,
               },
             },
+            ignoreTimeConflicts: true,
             schedule: {
               select: {
                 availability: {
