@@ -1,3 +1,4 @@
+import { TEAM_PERMISSIONS, type TeamPermissionKey } from "@calcom/features/teams/lib/teamPermissions";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import type { bookingMetadataSchema } from "@calcom/prisma/zod-utils";
 import { trpc } from "@calcom/trpc/react";
@@ -28,6 +29,7 @@ import { RescheduleDialog } from "@components/dialog/RescheduleDialog";
 import { WrongAssignmentDialog } from "@components/dialog/WrongAssignmentDialog";
 import { useState } from "react";
 import type { z } from "zod";
+import { useTeamPermissions } from "~/teams/hooks/useTeamPermissions";
 import { useBookingConfirmation } from "../hooks/useBookingConfirmation";
 import type { BookingItemProps } from "../types";
 import { useBookingActionsStoreContext } from "./BookingActionsStoreProvider";
@@ -178,13 +180,20 @@ export function BookingActionsDropdown({
     return "upcoming";
   };
 
-
   const userEmail = booking.loggedInUser.userEmail;
   const userSeat = booking.seatsReferences.find((seat) => !!userEmail && seat.attendee?.email === userEmail);
   const isAttendee = !!userSeat;
 
   // Check if the logged-in user is the host/owner of the booking
   const isHost = booking.loggedInUser.userId === booking.user?.id;
+  const isEventTypeHost = booking.eventType?.hosts?.some((host) => host.user?.email === userEmail) ?? false;
+  // Organizer/host actions are always allowed regardless of team permission settings - those
+  // settings only gate a team member acting on someone else's booking (see handleCancelBooking.ts
+  // and BookingAccessService for the equivalent server-side bypass).
+  const isOrganizerOrHost = isHost || isEventTypeHost;
+  const teamId = booking.eventType?.team?.id;
+  const { hasPermission } = useTeamPermissions(teamId);
+  const permissionDeniedTooltip = t("team_permission_denied_tooltip");
 
   const isCalVideoLocation =
     !booking.location ||
@@ -244,16 +253,28 @@ export function BookingActionsDropdown({
     t,
   } as BookingActionContext;
 
-  const cancelEventAction = getCancelEventAction(actionContext);
+  const cancelPermissionDenied = !isOrganizerOrHost && !hasPermission(TEAM_PERMISSIONS.BOOKING_CANCEL);
+  const baseCancelEventAction = getCancelEventAction(actionContext);
+  const cancelEventAction = {
+    ...baseCancelEventAction,
+    disabled: baseCancelEventAction.disabled || cancelPermissionDenied,
+  };
   const showPastBookingCancelTooltip = isBookingInPast && cancelEventAction.disabled;
+  const cancelTooltipContent = isBookingInPast
+    ? t("cannot_cancel_past_booking")
+    : cancelPermissionDenied
+      ? permissionDeniedTooltip
+      : "";
+  const showCancelTooltip = showPastBookingCancelTooltip || cancelPermissionDenied;
 
   // Get pending actions (accept/reject) - only for details context
   const shouldShowPending = shouldShowPendingActions(actionContext);
   const basePendingActions =
     shouldShowPending && context === "details" ? getPendingActions(actionContext) : [];
+  const confirmPermissionDenied = !isOrganizerOrHost && !hasPermission(TEAM_PERMISSIONS.BOOKING_CONFIRM);
   const pendingActions: ActionType[] = basePendingActions.map((action) => ({
     ...action,
-    disabled: isConfirmPending,
+    disabled: isConfirmPending || confirmPermissionDenied,
     onClick:
       action.id === "confirm"
         ? () =>
@@ -269,20 +290,32 @@ export function BookingActionsDropdown({
 
   const shouldShowEdit = shouldShowEditActions(actionContext);
   const baseEditEventActions = getEditEventActions(actionContext);
-  const editEventActions: ActionType[] = baseEditEventActions.map((action) => ({
-    ...action,
-    disabled: !shouldShowEdit || action.disabled, // Disable all edit actions if shouldn't show edit actions
-    onClick:
-      action.id === "reschedule_request"
-        ? () => setIsOpenRescheduleDialog(true)
-        : action.id === "change_location"
+  // Only the actions with a catalog entry get a team-permission check - reassign has no live
+  // handler to enforce it server-side (see teamPermissions.ts), so it's left alone here too.
+  const editActionPermissionKeys: Partial<Record<string, TeamPermissionKey>> = {
+    change_location: TEAM_PERMISSIONS.BOOKING_EDIT_LOCATION,
+    add_members: TEAM_PERMISSIONS.BOOKING_ADD_GUESTS,
+    reschedule_request: TEAM_PERMISSIONS.BOOKING_REQUEST_RESCHEDULE,
+  };
+  const editEventActions: ActionType[] = baseEditEventActions.map((action) => {
+    const permissionKey = editActionPermissionKeys[action.id];
+    const permissionDenied = !!permissionKey && !isOrganizerOrHost && !hasPermission(permissionKey);
+
+    return {
+      ...action,
+      disabled: !shouldShowEdit || action.disabled || permissionDenied, // Disable all edit actions if shouldn't show edit actions
+      onClick:
+        action.id === "reschedule_request"
+          ? () => setIsOpenRescheduleDialog(true)
+          : action.id === "change_location"
             ? () => setIsOpenLocationDialog(true)
             : action.id === "add_members"
               ? () => setIsOpenAddGuestsDialog(true)
               : action.id === "reassign"
                 ? () => setIsOpenReassignDialog(true)
                 : undefined,
-  })) as ActionType[];
+    };
+  }) as ActionType[];
 
   const baseAfterEventActions = getAfterEventActions(actionContext);
   const afterEventActions: ActionType[] = baseAfterEventActions.map((action) => ({
@@ -310,6 +343,9 @@ export function BookingActionsDropdown({
     disabled:
       action.disabled ||
       (action.id === "no_show" && !(isBookingInPast || isOngoing)) ||
+      (action.id === "no_show" &&
+        !isOrganizerOrHost &&
+        !hasPermission(TEAM_PERMISSIONS.BOOKING_MARK_NO_SHOW)) ||
       (action.id === "view_recordings" && !booking.isRecorded),
   })) as ActionType[];
 
@@ -642,10 +678,7 @@ export function BookingActionsDropdown({
               </DropdownMenuItem>
             </>
             <DropdownMenuSeparator />
-            <Tooltip
-              content={isBookingInPast ? t("cannot_cancel_past_booking") : ""}
-              side="left"
-              open={showPastBookingCancelTooltip ? undefined : false}>
+            <Tooltip content={cancelTooltipContent} side="left" open={showCancelTooltip ? undefined : false}>
               <DropdownMenuItem
                 className="rounded-lg"
                 key={cancelEventAction.id}
