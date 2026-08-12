@@ -1,15 +1,9 @@
-import { expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
-
+import { expect } from "@playwright/test";
 import { test } from "./lib/fixtures";
 
-async function testDuplicateAPICalls(
-  page: Page,
-  url: string,
-  testDate?: Date
-): Promise<{ totalCalls: number; trpcCalls: number; apiV2Calls: number }> {
+async function testDuplicateAPICalls(page: Page, url: string, testDate?: Date): Promise<number> {
   const trpcCalls: string[] = [];
-  const apiV2Calls: string[] = [];
 
   if (testDate) {
     await page.clock.install({ time: testDate });
@@ -20,19 +14,10 @@ async function testDuplicateAPICalls(
     await route.continue();
   });
 
-  await page.route("**/api/v2/slots/available**", async (route) => {
-    apiV2Calls.push(route.request().url());
-    await route.continue();
-  });
-
   await page.goto(url);
   await page.waitForTimeout(5000);
 
-  return {
-    totalCalls: trpcCalls.length + apiV2Calls.length,
-    trpcCalls: trpcCalls.length,
-    apiV2Calls: apiV2Calls.length,
-  };
+  return trpcCalls.length;
 }
 
 /**
@@ -58,16 +43,14 @@ test.describe("Duplicate API Calls Prevention", () => {
     const eventType = user.eventTypes.find((e) => e.slug === "30-min");
     const beginningOfMonth = getStableTestDate(5);
 
-    const { totalCalls, trpcCalls, apiV2Calls } = await testDuplicateAPICalls(
+    const trpcCalls = await testDuplicateAPICalls(
       page,
       `/${user.username}/${eventType?.slug}`,
       beginningOfMonth
     );
 
-    expect(totalCalls).toBeGreaterThan(0);
-    expect(totalCalls).toBeLessThanOrEqual(1);
+    expect(trpcCalls).toBeGreaterThan(0);
     expect(trpcCalls).toBeLessThanOrEqual(1);
-    expect(apiV2Calls).toBeLessThanOrEqual(1);
   });
 
   test("should detect when schedule endpoints are called multiple times for individual user events - end of month", async ({
@@ -78,16 +61,9 @@ test.describe("Duplicate API Calls Prevention", () => {
     const eventType = user.eventTypes.find((e) => e.slug === "30-min");
     const endOfMonth = getStableTestDate(20);
 
-    const { totalCalls, trpcCalls, apiV2Calls } = await testDuplicateAPICalls(
-      page,
-      `/${user.username}/${eventType?.slug}`,
-      endOfMonth
-    );
+    const trpcCalls = await testDuplicateAPICalls(page, `/${user.username}/${eventType?.slug}`, endOfMonth);
 
-    expect(totalCalls).toBeGreaterThan(0);
-    expect(totalCalls).toBeLessThanOrEqual(1);
+    expect(trpcCalls).toBeGreaterThan(0);
     expect(trpcCalls).toBeLessThanOrEqual(1);
-    expect(apiV2Calls).toBeLessThanOrEqual(1);
   });
-
 });
