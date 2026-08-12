@@ -11,17 +11,22 @@ type Props = {
 
 // HorizontalTabItem/VerticalTabItem translate `name` themselves, so these are i18n keys, not translated strings.
 const useTeamTabs = (teamId: number): VerticalTabItemProps[] => {
-  // Profile edits the team's own settings, so only owners/admins get that tab - everyone
-  // else lands on Members (see TeamsTable, which sends them here in the first place).
+  // Profile edits the team's own settings and Permissions configures who can do what, so both
+  // stay visible-but-disabled for members instead of disappearing outright - members can see
+  // these exist rather than not knowing they're there. The page itself still enforces the real
+  // owner/admin check (see profile/permissions page.tsx) regardless of this UI-only affordance.
   const canManage = useCanManageTeam(teamId);
 
   return [
-    ...(canManage ? [{ name: "profile", href: `/teams/${teamId}/edit/profile`, icon: "user" as const }] : []),
+    { name: "profile", href: `/teams/${teamId}/edit/profile`, icon: "user" as const, disabled: !canManage },
     { name: "members", href: `/teams/${teamId}/edit/members`, icon: "users" as const },
     { name: "time_off", href: `/teams/${teamId}/edit/time-off`, icon: "calendar-x-2" as const },
-    ...(canManage
-      ? [{ name: "permissions", href: `/teams/${teamId}/edit/permissions`, icon: "lock" as const }]
-      : []),
+    {
+      name: "permissions",
+      href: `/teams/${teamId}/edit/permissions`,
+      icon: "lock" as const,
+      disabled: !canManage,
+    },
   ];
 };
 
