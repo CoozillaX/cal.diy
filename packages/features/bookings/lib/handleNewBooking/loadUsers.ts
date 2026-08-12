@@ -12,7 +12,10 @@ import { Prisma } from "@calcom/prisma/client";
 import { credentialForCalendarServiceSelect } from "@calcom/prisma/selects/credential";
 import type { NewBookingEventType } from "./getEventTypesFromDB";
 
-const getOrgDomainConfig = (..._args: unknown[]) => ({ currentOrgDomain: null as string | null, isValidOrgDomain: false });
+const getOrgDomainConfig = (..._args: unknown[]) => ({
+  currentOrgDomain: null as string | null,
+  isValidOrgDomain: false,
+});
 
 const log = logger.getSubLogger({ prefix: ["[loadUsers]:handleNewBooking "] });
 
@@ -84,14 +87,17 @@ const loadUsersByEventType = async (eventType: EventType): Promise<NewBookingEve
     eventType,
     hosts: hosts ?? fallbackHosts,
   });
-  return matchingHosts.map(({ user, isFixed, priority, weight, createdAt, groupId }) => ({
-    ...user,
-    isFixed,
-    priority,
-    weight,
-    createdAt,
-    groupId,
-  }));
+  return matchingHosts.map(
+    ({ user, isFixed, priority, weight, ignoreTimeConflicts, createdAt, groupId }) => ({
+      ...user,
+      isFixed,
+      priority,
+      weight,
+      ignoreTimeConflicts,
+      createdAt,
+      groupId,
+    })
+  );
 };
 
 const loadDynamicUsers = async (dynamicUserList: string[], currentOrgDomain: string | null) => {

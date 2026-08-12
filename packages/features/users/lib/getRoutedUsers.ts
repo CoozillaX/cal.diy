@@ -47,6 +47,9 @@ type BaseHost<User extends BaseUser> = {
   priority?: number | null;
   weight?: number | null;
   weightAdjustment?: number | null;
+  // Fallback hosts (e.g. a store manager) who must stay bookable even when they already have an
+  // overlapping booking - see ensureAvailableUsers.ts, the only place this is actually consumed.
+  ignoreTimeConflicts?: boolean | null;
   user: User;
   groupId: string | null;
 };
@@ -79,6 +82,7 @@ export function getNormalizedHosts<User extends BaseUser, Host extends BaseHost<
         user: host.user,
         priority: host.priority,
         weight: host.weight,
+        ignoreTimeConflicts: host.ignoreTimeConflicts,
         createdAt: host.createdAt,
         groupId: host.groupId,
       })),
@@ -121,6 +125,7 @@ export async function getNormalizedHostsWithDelegationCredentials<
       user: host.user,
       priority: host.priority,
       weight: host.weight,
+      ignoreTimeConflicts: host.ignoreTimeConflicts,
       createdAt: host.createdAt,
       groupId: host.groupId,
     }));
@@ -173,6 +178,7 @@ export async function findMatchingHostsWithEventSegment<User extends BaseUser>({
     user: User;
     priority?: number | null;
     weight?: number | null;
+    ignoreTimeConflicts?: boolean | null;
     createdAt: Date | null;
     groupId: string | null;
   }[];

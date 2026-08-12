@@ -59,23 +59,28 @@ enum CreationSource {
 }
 
 model Host {
-  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId           Int
-  eventType        EventType     @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
-  eventTypeId      Int
-  isFixed          Boolean       @default(false)
-  priority         Int?
-  weight           Int?
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId              Int
+  eventType           EventType     @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  eventTypeId         Int
+  isFixed             Boolean       @default(false)
+  priority            Int?
+  weight              Int?
+  // When true, round-robin availability checks skip this host's own busy-time conflicts (their
+  // schedule/working-hours window is still respected). For a designated fallback host (e.g. a
+  // store manager who must always be bookable as a last resort) who would otherwise be excluded
+  // just because they already have an overlapping booking.
+  ignoreTimeConflicts Boolean       @default(false)
   // weightAdjustment is deprecated. We not calculate the calibratino value on the spot. Plan to drop this column.
-  weightAdjustment Int?
-  schedule         Schedule?     @relation(fields: [scheduleId], references: [id])
-  scheduleId       Int?
-  createdAt        DateTime      @default(now())
-  group            HostGroup?    @relation(fields: [groupId], references: [id])
-  groupId          String?
-  memberId         Int?
-  member           Membership?   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  location         HostLocation?
+  weightAdjustment    Int?
+  schedule            Schedule?     @relation(fields: [scheduleId], references: [id])
+  scheduleId          Int?
+  createdAt           DateTime      @default(now())
+  group               HostGroup?    @relation(fields: [groupId], references: [id])
+  groupId             String?
+  memberId            Int?
+  member              Membership?   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  location            HostLocation?
 
   @@id([userId, eventTypeId])
   @@index([memberId])
