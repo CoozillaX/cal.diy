@@ -19,6 +19,9 @@ const useTeamTabs = (teamId: number): VerticalTabItemProps[] => {
     ...(canManage ? [{ name: "profile", href: `/teams/${teamId}/edit/profile`, icon: "user" as const }] : []),
     { name: "members", href: `/teams/${teamId}/edit/members`, icon: "users" as const },
     { name: "time_off", href: `/teams/${teamId}/edit/time-off`, icon: "calendar-x-2" as const },
+    ...(canManage
+      ? [{ name: "permissions", href: `/teams/${teamId}/edit/permissions`, icon: "lock" as const }]
+      : []),
   ];
 };
 
