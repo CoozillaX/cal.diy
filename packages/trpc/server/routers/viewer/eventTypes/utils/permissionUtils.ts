@@ -1,3 +1,5 @@
+import { getTeamPermissionSettingService } from "@calcom/features/teams/di/TeamPermissionSettingService.container";
+import { meetsMinimumRole, TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import { MembershipRole } from "@calcom/prisma/enums";
 
 export interface TeamPermissions {
@@ -31,26 +33,34 @@ export function getEffectiveRole(
 
 /**
  * Cal.diy has no PBAC (packages/features/pbac was removed - see agents/rules/README.md's rule
- * index and the fork's own removal commit), so team permissions are decided purely by
- * `effectiveRole`. `userId`/`teamId` are kept in the signature since callers already resolved
- * `effectiveRole` from a real Membership row for this exact (userId, teamId) pair.
+ * index and the fork's own removal commit). canCreate/canEdit read the team's configured
+ * minimum role for eventType.create/eventType.update (TeamPermissionSettingService - see
+ * packages/features/teams/lib/teamPermissions.ts), defaulting to ADMIN/OWNER same as before if
+ * settings haven't loaded for some reason. canDelete stays hardcoded ADMIN/OWNER - "delete" isn't
+ * part of the configurable catalog. `_userId` is unused: `effectiveRole` already resolved the
+ * org-cascade for this (userId, teamId) pair, so we compare it directly against the configured
+ * role rather than re-querying membership from scratch.
  */
 export async function getTeamPermissions(
   _userId: number,
-  _teamId: number,
+  teamId: number,
   effectiveRole: MembershipRole
 ): Promise<TeamPermissions> {
-  return getFallbackPermissions(effectiveRole);
-}
+  const isAdminOrOwner = effectiveRole === MembershipRole.ADMIN || effectiveRole === MembershipRole.OWNER;
+  const isMember = effectiveRole === MembershipRole.MEMBER;
 
-function getFallbackPermissions(role: MembershipRole): TeamPermissions {
-  const isAdminOrOwner = role === MembershipRole.ADMIN || role === MembershipRole.OWNER;
-  const isMember = role === MembershipRole.MEMBER;
+  const settings = await getTeamPermissionSettingService().getEffectiveSettings({ teamId });
+  const createMinimumRole = settings.find(
+    (setting) => setting.permissionKey === TEAM_PERMISSIONS.EVENT_TYPE_CREATE
+  )?.minimumRole;
+  const editMinimumRole = settings.find(
+    (setting) => setting.permissionKey === TEAM_PERMISSIONS.EVENT_TYPE_UPDATE
+  )?.minimumRole;
 
   return {
     canRead: isAdminOrOwner || isMember,
-    canCreate: isAdminOrOwner,
-    canEdit: isAdminOrOwner,
+    canCreate: createMinimumRole ? meetsMinimumRole(effectiveRole, createMinimumRole) : isAdminOrOwner,
+    canEdit: editMinimumRole ? meetsMinimumRole(effectiveRole, editMinimumRole) : isAdminOrOwner,
     canDelete: isAdminOrOwner,
   };
 }

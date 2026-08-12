@@ -187,89 +187,52 @@ const Item = ({
   const isCurrentUserHost = "isCurrentUserHost" in type && type.isCurrentUserHost;
   const showAssignedBadge = isRoundRobinOrCollective && isCurrentUserHost;
 
-  const content = (): JSX.Element => (
-    <div>
-      <span
-        className="break-words font-semibold text-default ltr:mr-1 rtl:ml-1"
-        data-testid={`event-type-title-${type.id}`}>
-        {type.title}
-      </span>
-      {group.profile.slug && type.schedulingType !== SchedulingType.MANAGED ? (
-        <small
-          className="hidden font-normal text-subtle leading-4 sm:inline"
-          data-testid={`event-type-slug-${type.id}`}>
-          {`/${group.profile.slug}/${type.slug}`}
-        </small>
-      ) : null}
-      {!isManagedEventType && !type.teamId && type.hidden && (
-        <span className="ml-2 text-gray-400 text-sm sm:hidden">{t("hidden")}</span>
-      )}
-      {readOnly && (
-        <Badge variant="gray" className="ml-2" data-testid="readonly-badge">
-          {t("readonly")}
-        </Badge>
-      )}
-      {showAssignedBadge && (
-        <Tooltip content={t("you_are_assigned_to_this_event")}>
-          <Badge variant="blue" className="ml-2" data-testid="assigned-badge">
-            {t("assigned")}
-          </Badge>
-        </Tooltip>
-      )}
-    </div>
-  );
-
   return (
     <div className={classNames(eventTypeColor && "-ml-3", "relative flex-1 overflow-hidden pr-4 text-sm")}>
       {eventTypeColor && (
         <div className="absolute h-full w-0.5" style={{ backgroundColor: eventTypeColor }} />
       )}
       <div className={classNames(eventTypeColor && "ml-3")}>
-        {readOnly ? (
+        {/* readOnly still opens the (view-only) edit page - it just can't be saved from there
+         * (see EventTypeLayout's Save button), same as the dropdown items below. */}
+        <Link href={`/event-types/${type.id}?tabName=setup`} title={type.title}>
           <div>
-            {content()}
-            <EventTypeDescription eventType={type} shortenDescription />
-          </div>
-        ) : (
-          <Link href={`/event-types/${type.id}?tabName=setup`} title={type.title}>
-            <div>
-              <span
-                className="break-words font-semibold text-default ltr:mr-1 rtl:ml-1"
-                data-testid={`event-type-title-${type.id}`}>
-                {type.title}
-              </span>
-              {group.profile.slug && type.schedulingType !== SchedulingType.MANAGED ? (
-                <small
-                  className="hidden font-normal text-subtle leading-4 sm:inline"
-                  data-testid={`event-type-slug-${type.id}`}>
-                  {`/${group.profile.slug}/${type.slug}`}
-                </small>
-              ) : null}
-              {!isManagedEventType && !type.teamId && type.hidden && (
-                <span className="ml-2 text-gray-400 text-sm sm:hidden">{t("hidden")}</span>
-              )}
-              {readOnly && (
-                <Badge variant="gray" className="ml-2" data-testid="readonly-badge">
-                  {t("readonly")}
+            <span
+              className="break-words font-semibold text-default ltr:mr-1 rtl:ml-1"
+              data-testid={`event-type-title-${type.id}`}>
+              {type.title}
+            </span>
+            {group.profile.slug && type.schedulingType !== SchedulingType.MANAGED ? (
+              <small
+                className="hidden font-normal text-subtle leading-4 sm:inline"
+                data-testid={`event-type-slug-${type.id}`}>
+                {`/${group.profile.slug}/${type.slug}`}
+              </small>
+            ) : null}
+            {!isManagedEventType && !type.teamId && type.hidden && (
+              <span className="ml-2 text-gray-400 text-sm sm:hidden">{t("hidden")}</span>
+            )}
+            {readOnly && (
+              <Badge variant="gray" className="ml-2" data-testid="readonly-badge">
+                {t("readonly")}
+              </Badge>
+            )}
+            {showAssignedBadge && (
+              <Tooltip content={t("you_are_assigned_to_this_event")}>
+                <Badge variant="blue" className="ml-2" data-testid="assigned-badge">
+                  {t("assigned")}
                 </Badge>
-              )}
-              {showAssignedBadge && (
-                <Tooltip content={t("you_are_assigned_to_this_event")}>
-                  <Badge variant="blue" className="ml-2" data-testid="assigned-badge">
-                    {t("assigned")}
-                  </Badge>
-                </Tooltip>
-              )}
-            </div>
-            <EventTypeDescription
-              eventType={{
-                ...type,
-                descriptionAsSafeHTML: type.safeDescription,
-              }}
-              shortenDescription
-            />
-          </Link>
-        )}
+              </Tooltip>
+            )}
+          </div>
+          <EventTypeDescription
+            eventType={{
+              ...type,
+              descriptionAsSafeHTML: type.safeDescription,
+            }}
+            shortenDescription
+          />
+        </Link>
       </div>
     </div>
   );
@@ -679,24 +642,26 @@ export const InfiniteEventTypeList = ({
                                 />
                               </DropdownMenuTrigger>
                               <DropdownMenuContent>
-                                {!readOnly && (
-                                  <DropdownMenuItem>
-                                    <DropdownItem
-                                      type="button"
-                                      data-testid={`event-type-edit-${type.id}`}
-                                      StartIcon="pencil"
-                                      onClick={() => router.push(`/event-types/${type.id}`)}>
-                                      {t("edit")}
-                                    </DropdownItem>
-                                  </DropdownMenuItem>
-                                )}
+                                <DropdownMenuItem>
+                                  <DropdownItem
+                                    type="button"
+                                    data-testid={`event-type-edit-${type.id}`}
+                                    StartIcon="pencil"
+                                    disabled={readOnly}
+                                    className={readOnly ? "text-muted" : undefined}
+                                    onClick={() => router.push(`/event-types/${type.id}`)}>
+                                    {t("edit")}
+                                  </DropdownItem>
+                                </DropdownMenuItem>
                                 {/* readonly is only set when we are on a team - if we are on a user event type null will be the value. */}
-                                {!readOnly && !isManagedEventType && !isChildrenManagedEventType && (
+                                {!isManagedEventType && !isChildrenManagedEventType && (
                                   <DropdownMenuItem className="outline-none">
                                     <DropdownItem
                                       type="button"
                                       data-testid={`event-type-duplicate-${type.id}`}
                                       StartIcon="copy"
+                                      disabled={readOnly}
+                                      className={readOnly ? "text-muted" : undefined}
                                       onClick={() => openDuplicateModal(type, group)}>
                                       {t("duplicate")}
                                     </DropdownItem>
@@ -717,19 +682,23 @@ export const InfiniteEventTypeList = ({
                                   </DropdownMenuItem>
                                 )}
                                 {/* readonly is only set when we are on a team - if we are on a user event type null will be the value. */}
-                                {!readOnly && !isChildrenManagedEventType && (
+                                {!isChildrenManagedEventType && (
                                   <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem>
                                       <DropdownItem
-                                        color="destructive"
+                                        color={readOnly ? undefined : "destructive"}
+                                        disabled={readOnly}
                                         onClick={() => {
                                           setDeleteDialogOpen(true);
                                           setDeleteDialogTypeId(type.id);
                                           setDeleteDialogSchedulingType(type.schedulingType);
                                         }}
                                         StartIcon="trash"
-                                        className="w-full rounded-t-none">
+                                        className={classNames(
+                                          "w-full rounded-t-none",
+                                          readOnly && "text-muted"
+                                        )}>
                                         {t("delete")}
                                       </DropdownItem>
                                     </DropdownMenuItem>
@@ -796,38 +765,40 @@ export const InfiniteEventTypeList = ({
                               </DropdownItem>
                             </DropdownMenuItem>
                           ) : null}
-                          {!readOnly && (
-                            <DropdownMenuItem className="outline-none">
-                              <DropdownItem
-                                onClick={() => router.push(`/event-types/${type.id}`)}
-                                StartIcon="pencil"
-                                className="w-full rounded-none">
-                                {t("edit")}
-                              </DropdownItem>
-                            </DropdownMenuItem>
-                          )}
-                          {!readOnly && !isManagedEventType && !isChildrenManagedEventType && (
+                          <DropdownMenuItem className="outline-none">
+                            <DropdownItem
+                              onClick={() => router.push(`/event-types/${type.id}`)}
+                              StartIcon="pencil"
+                              disabled={readOnly}
+                              className={classNames("w-full rounded-none", readOnly && "text-muted")}>
+                              {t("edit")}
+                            </DropdownItem>
+                          </DropdownMenuItem>
+                          {!isManagedEventType && !isChildrenManagedEventType && (
                             <DropdownMenuItem className="outline-none">
                               <DropdownItem
                                 onClick={() => openDuplicateModal(type, group)}
                                 StartIcon="copy"
+                                disabled={readOnly}
+                                className={readOnly ? "text-muted" : undefined}
                                 data-testid={`event-type-duplicate-${type.id}`}>
                                 {t("duplicate")}
                               </DropdownItem>
                             </DropdownMenuItem>
                           )}
                           {/* readonly is only set when we are on a team - if we are on a user event type null will be the value. */}
-                          {!readOnly && !isChildrenManagedEventType && (
+                          {!isChildrenManagedEventType && (
                             <DropdownMenuItem className="outline-none">
                               <DropdownItem
-                                color="destructive"
+                                color={readOnly ? undefined : "destructive"}
+                                disabled={readOnly}
                                 onClick={() => {
                                   setDeleteDialogOpen(true);
                                   setDeleteDialogTypeId(type.id);
                                   setDeleteDialogSchedulingType(type.schedulingType);
                                 }}
                                 StartIcon="trash"
-                                className="w-full rounded-t-none">
+                                className={classNames("w-full rounded-t-none", readOnly && "text-muted")}>
                                 {t("delete")}
                               </DropdownItem>
                             </DropdownMenuItem>
