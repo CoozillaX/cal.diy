@@ -49,7 +49,7 @@
 
 ## 4. 需要开发的项
 
-### 4.1 店长忽略时间冲突（始终可被分配）—— 已完成（含 slot 显示层）
+### 4.1 店长忽略时间冲突（始终可被分配）—— 已完成（含 slot 显示层 + DB 层去重）
 
 **问题**：Cal.com 轮询分配在 `packages/features/bookings/lib/handleNewBooking/ensureAvailableUsers.ts` 中有硬性冲突过滤：
 
@@ -67,10 +67,13 @@ checkForConflicts({ busy: bufferedBusyTimes, time: ..., eventLength: ... })
 2. `ensureAvailableUsers.ts` — 该 host 被标记时跳过 `checkForConflicts`（仍然落在他自己配置的工作时间窗口内，不会变成 24 小时随便约）—— 这一步管的是**预约提交那一刻**的最终校验
 3. 团队事件类型编辑页 → Assignment 标签 → host 列表 → 加了一个盾牌图标开关（priority/weight 旁边），owner 可以勾选；已在浏览器里端到端验证：勾选、保存、刷新页面后状态正确读回，数据库里 `Host.ignoreTimeConflicts` 字段正确持久化
 4. `packages/features/availability/lib/getUserAvailability.ts` —— 客户在日历上"能看到哪些时间段可点"走的是完全独立的另一套计算（`UserAvailabilityService.getUsersAvailability`，被 `slots.getSchedule` 调用，驱动 Booker 日历实际渲染），之前不认识这个字段，即使店长被标记了"忽略冲突"，那个时间段在客户日历上也不会显示成可点——这一步补上了同样的跳过逻辑，让 slot **显示**层和**提交**层保持一致
+5. `packages/prisma/extensions/booking-idempotency-key.ts` —— 实测发现即使前两层都修好，"真正提交预约"这一步还是会被静默拦下：`Booking.idempotencyKey`（数据库唯一约束）之前只由 `开始时间.结束时间.组织者` 三者算出，同一个组织者在同一个时间段的第二条预约会跟第一条撞键，代码里对撞键的处理是"直接返回已存在的那条"而不是报错——也就是说客户点"确认预约"看起来成功了，但实际上没有新建任何记录，返回的还是第一条预约的详情页。这一层跟"是不是同一个客户"完全无关，哪怕是两个完全不同的客户各自约同一个店长的同一个重叠时段，第二个人也会被静默重定向到第一个人的预约上。修复方式：把参与人邮箱一起folded进这个 key 的计算里，这样"同一个人手滑点两次"还是会正确去重（邮箱没变，key 一样），但"两个不同的人各自预约"就会分别成功
 
-提交记录：`f18d847f9c`（后端-提交校验）、`c0e5e0d8dc`（UI 开关）、`ef41fd5e42`（后端-slot 显示层）。
+提交记录：`f18d847f9c`（后端-提交校验）、`c0e5e0d8dc`（UI 开关）、`ef41fd5e42`（后端-slot 显示层）、`242ef255eb`（DB 层去重键）。
 
-**验证方式**：给店长在某个工作时段内创建一条"占用"预约，标记 `ignoreTimeConflicts=true` 后，确认客户日历上那个时间段仍显示可点；改回 `false`（预约不变）后重新确认那个时间段从日历上消失——两个方向都验证过，行为符合预期。
+**验证方式**：
+- 提交校验 + slot 显示层：给店长在某个工作时段内创建一条"占用"预约，标记 `ignoreTimeConflicts=true` 后，确认客户日历上那个时间段仍显示可点；改回 `false`（预约不变）后重新确认那个时间段从日历上消失——两个方向都验证过。
+- DB 层去重键：用两个不同的客户身份（不同邮箱）在浏览器里各自完整走一遍预约流程、约同一个重叠时段，确认数据库里生成了两条独立的 `accepted` 预约记录；然后用第一个客户的身份再提交一次同一时段，确认正确被重定向回第一条预约（没有生成第三条）——这一步是被用户实测"同一时间约两次"发现的，一开始没验证到这一层，后来专门补上了。
 
 ### 4.2 预填字段的动态锁定（如 VIN）
 
