@@ -116,6 +116,7 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
           priority: true,
           weight: true,
           isFixed: true,
+          ignoreTimeConflicts: true,
         },
       },
       calVideoSettings: {
@@ -488,6 +489,7 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
           weight: number;
           groupId: string | null | undefined;
           scheduleId?: number | null | undefined;
+          ignoreTimeConflicts: boolean;
           location?: {
             create: {
               type: string;
@@ -504,6 +506,7 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
           weight: host.weight ?? 100,
           groupId: host.groupId,
           scheduleId: host.scheduleId ?? null,
+          ignoreTimeConflicts: host.ignoreTimeConflicts ?? false,
         };
         if (host.location) {
           hostData.location = {
@@ -525,6 +528,7 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
           weight: number;
           scheduleId: number | null | undefined;
           groupId: string | null | undefined;
+          ignoreTimeConflicts: boolean;
           location?: {
             upsert: {
               create: {
@@ -549,6 +553,7 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
           weight: host.weight ?? 100,
           scheduleId: host.scheduleId === undefined ? undefined : host.scheduleId,
           groupId: host.groupId,
+          ignoreTimeConflicts: host.ignoreTimeConflicts ?? false,
         };
         if (host.location) {
           updateData.location = {

@@ -70,6 +70,7 @@ const EventTeamAssignmentTabWebWrapper = ({
             weight: host.weight,
             isFixed: host.isFixed,
             groupId: host.groupId,
+            ignoreTimeConflicts: host.ignoreTimeConflicts,
           },
         ];
       }),
@@ -94,6 +95,7 @@ const EventTeamAssignmentTabWebWrapper = ({
         // scheduleId field - preserve whatever the host already had instead of losing it.
         scheduleId: hosts.find((host) => host.userId === userId)?.scheduleId ?? null,
         groupId: option.groupId,
+        ignoreTimeConflicts: option.ignoreTimeConflicts ?? false,
       };
     });
     formMethods.setValue("hosts", nextHosts, { shouldDirty: true });

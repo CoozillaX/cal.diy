@@ -720,6 +720,7 @@ export class EventTypeRepository implements IEventTypesRepository {
           userId: true,
           priority: true,
           weight: true,
+          ignoreTimeConflicts: true,
           scheduleId: true,
           groupId: true,
           location: {
@@ -1001,6 +1002,7 @@ export class EventTypeRepository implements IEventTypesRepository {
           groupId: true,
           priority: true,
           weight: true,
+          ignoreTimeConflicts: true,
           scheduleId: true,
           location: {
             select: {
