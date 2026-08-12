@@ -1,14 +1,43 @@
+import { MembershipRepository } from "@calcom/features/membership/repositories/MembershipRepository";
+import { getTeamPermissionSettingService } from "@calcom/features/teams/di/TeamPermissionSettingService.container";
+import { TEAM_PERMISSIONS, type TeamPermissionKey } from "@calcom/features/teams/lib/teamPermissions";
 import { MembershipRole } from "@calcom/prisma/enums";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import authedProcedure from "./authedProcedure";
 
 type PermissionString = string;
+
+const TEAM_PERMISSION_KEYS = new Set<string>(Object.values(TEAM_PERMISSIONS));
+
+function isTeamPermissionKey(permission: string): permission is TeamPermissionKey {
+  return TEAM_PERMISSION_KEYS.has(permission);
+}
+
+// Duplicated (rather than imported) from packages/trpc/.../eventTypes/permissionCheckService.ts:
+// each of these stub copies was pasted in separately when the old PBAC package was removed, so
+// each is fixed the same way independently - see agents/rules/README.md's rule index.
 class PermissionCheckService {
-  constructor(_prisma?: unknown) {}
-  async checkPermission(..._args: unknown[]) { return true; }
-  async hasPermission(..._args: unknown[]) { return true; }
-  async getTeamIdsWithPermission(..._args: unknown[]): Promise<number[]> { return []; }
+  constructor(private readonly membershipRepository: MembershipRepository = new MembershipRepository()) {}
+
+  async checkPermission({
+    userId,
+    teamId,
+    permission,
+    fallbackRoles,
+  }: {
+    userId: number;
+    teamId: number;
+    permission?: string;
+    fallbackRoles: MembershipRole[];
+  }): Promise<boolean> {
+    if (permission && isTeamPermissionKey(permission)) {
+      return getTeamPermissionSettingService().hasPermission({ teamId, userId, permissionKey: permission });
+    }
+
+    const membership = await this.membershipRepository.findUniqueByUserIdAndTeamId({ userId, teamId });
+    return !!membership?.accepted && fallbackRoles.includes(membership.role);
+  }
 }
 
 /**

@@ -1,6 +1,9 @@
 import dayjs from "@calcom/dayjs";
 import getAllUserBookings from "@calcom/features/bookings/lib/getAllUserBookings";
 import { isTextFilterValue } from "@calcom/features/data-table/lib/utils";
+import { MembershipRepository } from "@calcom/features/membership/repositories/MembershipRepository";
+import { getTeamPermissionSettingService } from "@calcom/features/teams/di/TeamPermissionSettingService.container";
+import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import type { DB } from "@calcom/kysely";
 import kysely from "@calcom/kysely";
 import { parseEventTypeColor } from "@calcom/lib/isEventTypeColor";
@@ -18,11 +21,45 @@ import { jsonArrayFrom, jsonObjectFrom } from "kysely/helpers/postgres";
 import type { TrpcSessionUser } from "../../../types";
 import type { TGetInputSchema } from "./get.schema";
 
+// Duplicated (rather than imported) from packages/trpc/.../eventTypes/permissionCheckService.ts:
+// each of these stub copies was pasted in separately when the old PBAC package was removed, so
+// each is fixed the same way independently - see agents/rules/README.md's rule index. This one
+// maps the "booking.read" string this file already used to the catalog's
+// booking.readTeamBookings key, so the team's configured minimum role actually governs which
+// team bookings show up in the list here too, not just the confirm/cancel/etc. mutations.
 class PermissionCheckService {
-  constructor(_prisma?: unknown) {}
-  async checkPermission(..._args: unknown[]) { return true; }
-  async hasPermission(..._args: unknown[]) { return true; }
-  async getTeamIdsWithPermission(..._args: unknown[]): Promise<number[]> { return []; }
+  constructor(private readonly membershipRepository: MembershipRepository = new MembershipRepository()) {}
+
+  /** permission/fallbackRoles/orgId aren't used - this always checks the configurable
+   * booking.readTeamBookings catalog entry directly; org-wide cascading isn't implemented for
+   * the configurable catalog (see TeamPermissionSettingService), same scoping as every other
+   * call site added this feature. Kept in the type only for call-site compatibility. */
+  async getTeamIdsWithPermission({
+    userId,
+  }: {
+    userId: number;
+    permission?: string;
+    fallbackRoles: MembershipRole[];
+    orgId?: number;
+  }): Promise<number[]> {
+    const memberships = await this.membershipRepository.findAllByUserId({
+      userId,
+      filters: { accepted: true },
+    });
+
+    const results = await Promise.all(
+      memberships.map(async (membership) => {
+        const hasPermission = await getTeamPermissionSettingService().hasPermission({
+          teamId: membership.teamId,
+          userId,
+          permissionKey: TEAM_PERMISSIONS.BOOKING_READ_TEAM_BOOKINGS,
+        });
+        return hasPermission ? membership.teamId : null;
+      })
+    );
+
+    return results.filter((teamId): teamId is number => teamId !== null);
+  }
 }
 
 type GetOptions = {
