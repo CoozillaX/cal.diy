@@ -2,7 +2,6 @@
 
 import type { VerticalTabItemProps } from "@calcom/ui/components/navigation";
 import { HorizontalTabs, VerticalTabs } from "@calcom/ui/components/navigation";
-import { useCanManageTeam } from "~/teams/hooks/useCanManageTeam";
 
 type Props = {
   teamId: number;
@@ -10,25 +9,17 @@ type Props = {
 };
 
 // HorizontalTabItem/VerticalTabItem translate `name` themselves, so these are i18n keys, not translated strings.
-const useTeamTabs = (teamId: number): VerticalTabItemProps[] => {
-  // Profile edits the team's own settings and Permissions configures who can do what, so both
-  // stay visible-but-disabled for members instead of disappearing outright - members can see
-  // these exist rather than not knowing they're there. The page itself still enforces the real
-  // owner/admin check (see profile/permissions page.tsx) regardless of this UI-only affordance.
-  const canManage = useCanManageTeam(teamId);
-
-  return [
-    { name: "profile", href: `/teams/${teamId}/edit/profile`, icon: "user" as const, disabled: !canManage },
-    { name: "members", href: `/teams/${teamId}/edit/members`, icon: "users" as const },
-    { name: "time_off", href: `/teams/${teamId}/edit/time-off`, icon: "calendar-x-2" as const },
-    {
-      name: "permissions",
-      href: `/teams/${teamId}/edit/permissions`,
-      icon: "lock" as const,
-      disabled: !canManage,
-    },
-  ];
-};
+//
+// All four tabs are reachable by every member - Profile and Permissions used to be hidden
+// outright for non-admin/owner members, but that meant members couldn't even discover them.
+// Each view now disables its own controls (form fields, save button, role selects) instead,
+// so members can see what's there without being able to change it.
+const useTeamTabs = (teamId: number): VerticalTabItemProps[] => [
+  { name: "profile", href: `/teams/${teamId}/edit/profile`, icon: "user" as const },
+  { name: "members", href: `/teams/${teamId}/edit/members`, icon: "users" as const },
+  { name: "time_off", href: `/teams/${teamId}/edit/time-off`, icon: "calendar-x-2" as const },
+  { name: "permissions", href: `/teams/${teamId}/edit/permissions`, icon: "lock" as const },
+];
 
 /** Mirrors the event-type edit layout: a sticky vertical nav on the left with content on the
  * right at xl+, collapsing to horizontal tabs above the content on smaller screens. */

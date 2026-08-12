@@ -17,16 +17,19 @@ import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import TeamSettingsLayout from "~/teams/components/TeamSettingsLayout";
+import { useCanManageTeam } from "~/teams/hooks/useCanManageTeam";
 
 type FormValues = { name: string; logoUrl: string | null };
 
-/** Content only - the page (rendered inside the main app shell) owns the heading. Only
- * reachable by team owners/admins - TeamSettingsLayout hides this tab for everyone else. */
+/** Content only - the page (rendered inside the main app shell) owns the heading. Any member
+ * can reach this tab (TeamSettingsLayout no longer hides it) - the name/logo form and save
+ * button are disabled below for non-admin/owner members instead. */
 const ProfileView = ({ teamId }: { teamId: number }) => {
   const { t } = useLocale();
   const router = useRouter();
   const utils = trpc.useUtils();
   const { data: sessionData } = useSession();
+  const canManage = useCanManageTeam(teamId);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const form = useForm<FormValues>({ defaultValues: { name: "", logoUrl: null } });
 
@@ -93,17 +96,27 @@ const ProfileView = ({ teamId }: { teamId: number }) => {
                       buttonMsg={t("upload_logo")}
                       handleAvatarChange={onChange}
                       imageSrc={getPlaceholderAvatar(value, form.watch("name"))}
+                      disabled={!canManage}
                     />
                   </div>
                 </div>
               )}
             />
             <div className="mt-6">
-              <TextField label={t("team_name")} required {...form.register("name", { required: true })} />
+              <TextField
+                label={t("team_name")}
+                required
+                disabled={!canManage}
+                {...form.register("name", { required: true })}
+              />
             </div>
           </div>
           <SectionBottomActions align="end">
-            <Button type="submit" loading={updateMutation.isPending}>
+            <Button
+              type="submit"
+              loading={updateMutation.isPending}
+              disabled={!canManage}
+              tooltip={!canManage ? t("team_permission_denied_tooltip") : undefined}>
               {t("save")}
             </Button>
           </SectionBottomActions>

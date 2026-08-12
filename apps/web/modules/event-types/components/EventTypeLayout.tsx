@@ -1,6 +1,8 @@
 import type { EventTypeSetupProps, FormValues } from "@calcom/features/eventtypes/lib/types";
+import { meetsMinimumRole, TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { SchedulingType } from "@calcom/prisma/enums";
+import { trpc } from "@calcom/trpc/react";
 import classNames from "@calcom/ui/classNames";
 import { Badge } from "@calcom/ui/components/badge";
 import { Button } from "@calcom/ui/components/button";
@@ -76,6 +78,23 @@ function EventTypeSingleLayout({
     !currentUserMembership ||
     formMethods.getValues("schedulingType") === SchedulingType.MANAGED ||
     isUserOrganizationAdmin;
+
+  // Team's configured minimum role for editing event types (defaults to ADMIN - see
+  // packages/features/teams/lib/teamPermissions.ts). Defaults to "allowed" while the query is
+  // loading/absent so the button doesn't flash disabled for users who do have access.
+  const { data: teamPermissionSettings } = trpc.viewer.teams.getPermissionSettings.useQuery(
+    { teamId: team?.id ?? 0 },
+    { enabled: !!team }
+  );
+  const eventTypeUpdateMinimumRole = teamPermissionSettings?.find(
+    (setting) => setting.permissionKey === TEAM_PERMISSIONS.EVENT_TYPE_UPDATE
+  )?.minimumRole;
+  const hasPermsToEdit =
+    !team ||
+    !currentUserMembership ||
+    isUserOrganizationAdmin ||
+    !eventTypeUpdateMinimumRole ||
+    meetsMinimumRole(currentUserMembership.role, eventTypeUpdateMinimumRole);
 
   const isManagedEventType = false;
   const isChildrenManagedEventType = false;
@@ -284,7 +303,8 @@ function EventTypeSingleLayout({
             className="ml-4 lg:ml-0"
             type="submit"
             loading={isUpdateMutationLoading}
-            disabled={!formMethods.formState.isDirty}
+            disabled={!formMethods.formState.isDirty || !hasPermsToEdit}
+            tooltip={!hasPermsToEdit ? t("team_permission_denied_tooltip") : undefined}
             data-testid="update-eventtype"
             form="event-type-form">
             {t("save")}

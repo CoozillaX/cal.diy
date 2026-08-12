@@ -814,6 +814,7 @@
   "team_id_copied": "Team ID copied.",
   "team_permissions_description": "Choose the minimum role required for each action. Owners can always do everything.",
   "team_permissions_owner_only_notice": "Only the team owner can change these settings.",
+  "team_permission_denied_tooltip": "You don't have permission to do this",
   "team_permissions_updated": "Permission settings updated",
   "team_permission_event_type_create": "Create event types",
   "team_permission_event_type_create_description": "Who can create new team event types",
