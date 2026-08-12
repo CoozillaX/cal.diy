@@ -1,3 +1,4 @@
+import process from "node:process";
 import { DailyLocationType } from "@calcom/app-store/constants";
 import { FAKE_DAILY_CREDENTIAL } from "@calcom/app-store/dailyvideo/lib/VideoApiAdapter";
 import { eventTypeMetaDataSchemaWithTypedApps } from "@calcom/app-store/zod-utils";
@@ -8,10 +9,13 @@ import EventManager from "@calcom/features/bookings/lib/EventManager";
 import { getCalEventResponses } from "@calcom/features/bookings/lib/getCalEventResponses";
 import { processNoShowFeeOnCancellation } from "@calcom/features/bookings/lib/payment/processNoShowFeeOnCancellation";
 import { processPaymentRefund } from "@calcom/features/bookings/lib/payment/processPaymentRefund";
+import { BookingAccessService } from "@calcom/features/bookings/services/BookingAccessService";
 import {
   type EventTypeBrandingData,
   getEventTypeService,
 } from "@calcom/features/eventtypes/di/EventTypeService.container";
+import { MembershipRepository } from "@calcom/features/membership/repositories/MembershipRepository";
+import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 import type { GetSubscriberOptions } from "@calcom/features/webhooks/lib/getWebhooks";
 import getWebhooks from "@calcom/features/webhooks/lib/getWebhooks";
@@ -21,25 +25,25 @@ import {
 } from "@calcom/features/webhooks/lib/scheduleTrigger";
 import sendPayload from "@calcom/features/webhooks/lib/sendOrSchedulePayload";
 import type { EventTypeInfo } from "@calcom/features/webhooks/lib/sendPayload";
+import { getTranslation } from "@calcom/i18n/server";
 import { HttpError } from "@calcom/lib/http-error";
 import { isPrismaObjOrUndefined } from "@calcom/lib/isPrismaObj";
 import { parseRecurringEvent } from "@calcom/lib/isRecurringEvent";
 import logger from "@calcom/lib/logger";
 import { safeStringify } from "@calcom/lib/safeStringify";
-import { getTranslation } from "@calcom/i18n/server";
+import { isPrismaError } from "@calcom/lib/server/getServerErrorFromUnknown";
 import { getTimeFormatStringFromUserTimeFormat } from "@calcom/lib/timeFormat";
 // TODO: Prisma import would be used from DI in a followup PR when we remove `handler` export
 import prisma from "@calcom/prisma";
 import type { WebhookTriggerEvents } from "@calcom/prisma/enums";
 import { BookingStatus } from "@calcom/prisma/enums";
-
-import { isCancellationReasonRequired } from "./cancellationReason";
 import type { EventTypeMetadata } from "@calcom/prisma/zod-utils";
 import { bookingCancelInput } from "@calcom/prisma/zod-utils";
 import type { CalendarEvent } from "@calcom/types/Calendar";
 import type { z } from "zod";
 import { BookingRepository } from "../repositories/BookingRepository";
 import { PrismaBookingAttendeeRepository } from "../repositories/PrismaBookingAttendeeRepository";
+import { isCancellationReasonRequired } from "./cancellationReason";
 import type {
   CancelBookingMeta,
   CancelRegularBookingData,
@@ -49,7 +53,6 @@ import { getAllCredentialsIncludeServiceAccountKey } from "./getAllCredentialsFo
 import { getBookingToDelete } from "./getBookingToDelete";
 import cancelAttendeeSeat from "./handleSeats/cancel/cancelAttendeeSeat";
 import type { IBookingCancelService } from "./interfaces/IBookingCancelService";
-import { isPrismaError } from "@calcom/lib/server/getServerErrorFromUnknown";
 
 const log = logger.getSubLogger({ prefix: ["handleCancelBooking"] });
 
@@ -80,17 +83,13 @@ type Dependencies = {
 
 async function handler(input: CancelBookingInput, dependencies?: Dependencies) {
   const prismaClient = prisma;
-  const {
-    userRepository,
-    bookingRepository,
-    bookingReferenceRepository,
-    attendeeRepository,
-  } = dependencies || {
-    userRepository: new UserRepository(prismaClient),
-    bookingRepository: new BookingRepository(prismaClient),
-    bookingReferenceRepository: new BookingReferenceRepository({ prismaClient }),
-    attendeeRepository: new PrismaBookingAttendeeRepository(prismaClient),
-  };
+  const { userRepository, bookingRepository, bookingReferenceRepository, attendeeRepository } =
+    dependencies || {
+      userRepository: new UserRepository(prismaClient),
+      bookingRepository: new BookingRepository(prismaClient),
+      bookingReferenceRepository: new BookingReferenceRepository({ prismaClient }),
+      attendeeRepository: new PrismaBookingAttendeeRepository(prismaClient),
+    };
   const body = input.bookingData;
   const {
     id,
@@ -103,12 +102,12 @@ async function handler(input: CancelBookingInput, dependencies?: Dependencies) {
     skipCancellationReasonValidation = false,
     skipCalendarSyncTaskCancellation = false,
   } = bookingCancelInput.parse(body);
-  let bookingToDelete: BookingToDelete
+  let bookingToDelete: BookingToDelete;
   try {
     bookingToDelete = await getBookingToDelete(id, uid);
   } catch (error) {
-    if (isPrismaError(error) && error.code === "P2025") // Record not found
-    {
+    if (isPrismaError(error) && error.code === "P2025") {
+      // Record not found
       throw new HttpError({
         statusCode: 404,
         message: "Booking not found.",
@@ -124,7 +123,6 @@ async function handler(input: CancelBookingInput, dependencies?: Dependencies) {
     platformRescheduleUrl,
     arePlatformEmailsEnabled,
   } = input;
-
 
   /**
    * Important: We prevent cancelling an already cancelled booking.
@@ -153,12 +151,39 @@ async function handler(input: CancelBookingInput, dependencies?: Dependencies) {
   const isCancellationUserHost =
     bookingToDelete.userId === userId || bookingToDelete.user.email === cancelledBy;
 
+  // Guest self-cancel (no login, or a logged-in attendee with no team ties) must keep working
+  // exactly as before - this only gates a *team member* who isn't the organizer/host, i.e. staff
+  // cancelling someone else's booking, which previously had no permission concept at all.
+  if (!isCancellationUserHost && userId && userId > 0 && bookingToDelete.eventType?.teamId) {
+    const teamId = bookingToDelete.eventType.teamId;
+    const membershipRepository = new MembershipRepository();
+    const membership = await membershipRepository.findUniqueByUserIdAndTeamId({ userId, teamId });
+
+    if (membership?.accepted) {
+      const bookingAccessService = new BookingAccessService(prisma);
+      const hasTeamPermission = await bookingAccessService.doesUserIdHaveAccessToBooking({
+        userId,
+        bookingId: bookingToDelete.id,
+        permission: TEAM_PERMISSIONS.BOOKING_CANCEL,
+      });
+
+      if (!hasTeamPermission) {
+        throw new HttpError({ statusCode: 403, message: "You are not allowed to cancel this booking" });
+      }
+    }
+  }
+
   const isReasonRequired = isCancellationReasonRequired(
     bookingToDelete.eventType?.requiresCancellationReason,
     isCancellationUserHost
   );
 
-  if (!platformClientId && !cancellationReason?.trim() && isReasonRequired && !skipCancellationReasonValidation) {
+  if (
+    !platformClientId &&
+    !cancellationReason?.trim() &&
+    isReasonRequired &&
+    !skipCancellationReasonValidation
+  ) {
     throw new HttpError({
       statusCode: 400,
       message: "Cancellation reason is required",

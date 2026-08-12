@@ -7,20 +7,22 @@ import dayjs from "@calcom/dayjs";
 import { sendRequestRescheduleEmailAndSMS } from "@calcom/emails/email-manager";
 import { getCalEventResponses } from "@calcom/features/bookings/lib/getCalEventResponses";
 import { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
+import { BookingAccessService } from "@calcom/features/bookings/services/BookingAccessService";
 import { deleteMeeting } from "@calcom/features/conferencing/lib/videoClient";
+import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import getWebhooks from "@calcom/features/webhooks/lib/getWebhooks";
 import {
   cancelNoShowTasksForBooking,
   deleteWebhookScheduledTriggers,
 } from "@calcom/features/webhooks/lib/scheduleTrigger";
 import sendPayload from "@calcom/features/webhooks/lib/sendOrSchedulePayload";
+import { getTranslation } from "@calcom/i18n/server";
 import { CalendarEventBuilder } from "@calcom/lib/builders/CalendarEvent/builder";
 import { CalendarEventDirector } from "@calcom/lib/builders/CalendarEvent/director";
 import getOrgIdFromMemberOrTeamId from "@calcom/lib/getOrgIdFromMemberOrTeamId";
 import { getTeamIdFromEventType } from "@calcom/lib/getTeamIdFromEventType";
 import logger from "@calcom/lib/logger";
 import { safeStringify } from "@calcom/lib/safeStringify";
-import { getTranslation } from "@calcom/i18n/server";
 import { BookingWebhookFactory } from "@calcom/lib/server/service/BookingWebhookFactory";
 import { prisma } from "@calcom/prisma";
 import type { BookingReference, EventType } from "@calcom/prisma/client";
@@ -69,11 +71,24 @@ export const requestRescheduleHandler = async ({ ctx, input, source }: RequestRe
     throw new TRPCError({ code: "FORBIDDEN", message: "EventType not found for current booking." });
   }
 
-  const bookingBelongsToTeam = !!bookingToReschedule.eventType?.teamId;
+  const eventTeamId = bookingToReschedule.eventType?.teamId;
   const isBookingOrganizer = bookingToReschedule.userId === user.id;
 
   if (!isBookingOrganizer) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "User isn't owner of the current booking" });
+    // Team members without a direct stake in the booking need the configured
+    // "booking.requestReschedule" permission - previously only the organizer could ever
+    // request a reschedule, so a team admin/owner acting on someone else's booking had no path in.
+    const hasTeamPermission =
+      !!eventTeamId &&
+      (await new BookingAccessService(prisma).doesUserIdHaveAccessToBooking({
+        userId: user.id,
+        bookingId: bookingToReschedule.id,
+        permission: TEAM_PERMISSIONS.BOOKING_REQUEST_RESCHEDULE,
+      }));
+
+    if (!hasTeamPermission) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "User isn't owner of the current booking" });
+    }
   }
 
   const event: Partial<EventType> = bookingToReschedule.eventType ?? {};
@@ -93,7 +108,6 @@ export const requestRescheduleHandler = async ({ ctx, input, source }: RequestRe
   await Promise.all(webhookPromises).catch((error) => {
     log.error("Error while deleting scheduled webhook triggers", JSON.stringify({ error }));
   });
-
 
   const [mainAttendee] = bookingToReschedule.attendees;
   // @NOTE: Should we assume attendees language?
@@ -236,9 +250,7 @@ export const requestRescheduleHandler = async ({ ctx, input, source }: RequestRe
     uid: bookingToReschedule.uid,
     location: bookingToReschedule.location,
     destinationCalendar: bookingToReschedule.destinationCalendar,
-    cancellationReason: [tAttendees("please_reschedule"), cancellationReason]
-    .filter(Boolean)
-    .join(" "),
+    cancellationReason: [tAttendees("please_reschedule"), cancellationReason].filter(Boolean).join(" "),
     iCalUID: bookingToReschedule.iCalUID,
     ...(bookingToReschedule.smsReminderNumber && {
       smsReminderNumber: bookingToReschedule.smsReminderNumber,
@@ -284,5 +296,4 @@ export const requestRescheduleHandler = async ({ ctx, input, source }: RequestRe
     })
   );
   await Promise.all(promises);
-
 };

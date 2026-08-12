@@ -5,10 +5,12 @@ import dayjs from "@calcom/dayjs";
 import { BookingEmailSmsHandler } from "@calcom/features/bookings/lib/BookingEmailSmsHandler";
 import EventManager from "@calcom/features/bookings/lib/EventManager";
 import { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
+import { BookingAccessService } from "@calcom/features/bookings/services/BookingAccessService";
 import {
   type EventTypeBrandingData,
   getEventTypeService,
 } from "@calcom/features/eventtypes/di/EventTypeService.container";
+import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 import { getTranslation } from "@calcom/i18n/server";
 import { extractBaseEmail } from "@calcom/lib/extract-base-email";
@@ -107,9 +109,23 @@ export async function validateUserPermissions(booking: Booking, user: TUser): Pr
   const isOrganizer = booking.userId === user.id;
   const isAttendee = !!booking.attendees.find((attendee) => attendee.email === user.email);
 
-  if (!isOrganizer && !isAttendee) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "you_do_not_have_permission" });
+  if (isOrganizer || isAttendee) return;
+
+  // Team members without a direct stake in the booking need the configured
+  // "booking.addGuests" permission - previously only the organizer/an attendee could ever add
+  // guests, so a team admin/owner acting on someone else's booking had no path in at all.
+  const teamId = booking.eventType?.teamId;
+  if (teamId) {
+    const bookingAccessService = new BookingAccessService(prisma);
+    const hasTeamPermission = await bookingAccessService.doesUserIdHaveAccessToBooking({
+      userId: user.id,
+      bookingId: booking.id,
+      permission: TEAM_PERMISSIONS.BOOKING_ADD_GUESTS,
+    });
+    if (hasTeamPermission) return;
   }
+
+  throw new TRPCError({ code: "FORBIDDEN", message: "you_do_not_have_permission" });
 }
 
 export function validateGuestsFieldEnabled(booking: Booking): void {
