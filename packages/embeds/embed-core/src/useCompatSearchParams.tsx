@@ -3,6 +3,7 @@
 import { ReadonlyURLSearchParams, useParams, useSearchParams } from "next/navigation";
 
 export const useCompatSearchParams = () => {
+  "use no memo";
   const _searchParams = useSearchParams() ?? new URLSearchParams();
   const params = useParams() ?? {};
 

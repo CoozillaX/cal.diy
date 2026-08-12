@@ -6,6 +6,7 @@ type CssVariables = Record<string, string>;
 
 // Sets up CSS Variables based on brand colours
 const useCalcomTheme = (theme: Record<string, CssVariables>) => {
+  "use no memo";
   useEffect(() => {
     Object.entries(theme).forEach(([key, value]) => {
       if (!value) {

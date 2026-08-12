@@ -12,6 +12,7 @@ import { localStorage } from "@calcom/lib/webstorage";
  */
 // eslint-disable-next-line @typescript-eslint/ban-types
 export default function useTheme(themeToSet: "system" | (string & {}) | undefined | null, getOnly = false) {
+  "use no memo";
   if (typeof window !== "undefined") {
     const themeFromLocalStorage = localStorage.getItem("app-theme");
     themeToSet = themeToSet ?? themeFromLocalStorage ?? "system";

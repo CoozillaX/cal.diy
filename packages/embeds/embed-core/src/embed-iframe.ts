@@ -147,6 +147,7 @@ function isValidNamespace(ns: string | null | undefined) {
  * History API is currently being used by Booker/utils/query-param
  */
 const useUrlChange = (callback: (newUrl: string) => void) => {
+  "use no memo";
   const currentFullUrl = isBrowser ? new URL(document.URL) : null;
   const pathname = currentFullUrl?.pathname ?? "";
   const searchParams = currentFullUrl?.searchParams ?? null;
@@ -161,6 +162,7 @@ const useUrlChange = (callback: (newUrl: string) => void) => {
 };
 
 export const useEmbedTheme = () => {
+  "use no memo";
   const searchParams = useCompatSearchParams();
   const [theme, setTheme] = useState(
     embedStore.theme || (searchParams?.get("theme") as typeof embedStore.theme)

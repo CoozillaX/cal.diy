@@ -222,6 +222,7 @@ const nextConfig = (phase: string): NextConfig => {
   }
 
   return {
+    reactCompiler: true,
     output: process.env.BUILD_STANDALONE === "true" ? "standalone" : undefined,
     serverExternalPackages: [
       "deasync",
@@ -234,7 +235,13 @@ const nextConfig = (phase: string): NextConfig => {
       "jose",
     ],
     experimental: {
-      optimizePackageImports: ["@calcom/ui"],
+      optimizePackageImports: [
+        "@calcom/ui",
+        "@coss/ui",
+        "date-fns",
+        "@tanstack/react-query",
+        "@tanstack/react-table",
+      ],
     },
     productionBrowserSourceMaps: true,
     transpilePackages: [
