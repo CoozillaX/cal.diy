@@ -1,5 +1,4 @@
 import { MembershipRole } from "@calcom/prisma/enums";
-
 import authedProcedure from "../../../../procedures/authedProcedure";
 import { router } from "../../../../trpc";
 import { createEventPbacProcedure } from "../util";
@@ -16,7 +15,7 @@ export const eventTypesRouter = router({
       input,
     });
   }),
-  duplicate: createEventPbacProcedure("eventType.create", [MembershipRole.ADMIN, MembershipRole.OWNER])
+  duplicate: createEventPbacProcedure("eventType.duplicate", [MembershipRole.ADMIN, MembershipRole.OWNER])
     .input(ZDuplicateInputSchema)
     .mutation(async ({ ctx, input }) => {
       const { duplicateHandler } = await import("./duplicate.handler");
