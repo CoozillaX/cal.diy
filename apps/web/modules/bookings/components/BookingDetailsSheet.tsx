@@ -2,6 +2,7 @@
 
 import dayjs from "@calcom/dayjs";
 import { useBookingLocation } from "@calcom/features/bookings/hooks";
+import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import { shouldShowFieldInCustomResponses } from "@calcom/lib/bookings/SystemField";
 import { formatPrice } from "@calcom/lib/currencyConversions";
 import { formatToLocalizedTimezone } from "@calcom/lib/dayjs";
@@ -49,6 +50,7 @@ import {
   createBookingSheetKeydownHandler,
 } from "../lib/bookingSheetKeyboardHandler";
 import { JoinMeetingButton } from "./JoinMeetingButton";
+import { useTeamPermissions } from "~/teams/hooks/useTeamPermissions";
 
 type BookingMetaData = z.infer<typeof bookingMetadataSchema>;
 
@@ -252,6 +254,15 @@ function BookingDetailsSheetInner({
 
   const isPending = booking.status === BookingStatus.PENDING;
 
+  // Organizer/host actions are always allowed regardless of team permission settings - mirrors
+  // the same bypass in BookingListItem.tsx and handleCancelBooking.ts's server-side check.
+  const isOrganizer = userId === booking.user?.id;
+  const isEventTypeHost =
+    booking.eventType?.hosts?.some((host) => host.user?.email === userEmail) ?? false;
+  const isOrganizerOrHost = isOrganizer || isEventTypeHost;
+  const { hasPermission } = useTeamPermissions(booking.eventType?.team?.id);
+  const confirmPermissionDenied = !isOrganizerOrHost && !hasPermission(TEAM_PERMISSIONS.BOOKING_CONFIRM);
+
   const parsedMetadata = bookingMetadataSchema.safeParse(
     booking.metadata ?? null
   );
@@ -440,12 +451,16 @@ function BookingDetailsSheetInner({
                   bookingUid={booking.uid}
                   recurringEventId={booking.recurringEventId}
                   isRecurring={!!booking.recurringEventId}
+                  disabled={confirmPermissionDenied}
+                  disabledTooltip={t("team_permission_denied_tooltip")}
                 />
                 <AcceptBookingButton
                   bookingId={booking.id}
                   bookingUid={booking.uid}
                   recurringEventId={booking.recurringEventId}
                   isRecurring={!!booking.recurringEventId}
+                  disabled={confirmPermissionDenied}
+                  disabledTooltip={t("team_permission_denied_tooltip")}
                 />
               </>
             ) : (

@@ -1,6 +1,5 @@
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { Button } from "@calcom/ui/components/button";
-
 import { RejectionReasonDialog } from "../dialog/RejectionReasonDialog";
 import { useBookingConfirmation } from "./hooks/useBookingConfirmation";
 
@@ -14,6 +13,8 @@ interface RejectBookingButtonProps {
   size?: "sm" | "base" | "lg";
   color?: "primary" | "secondary" | "minimal" | "destructive";
   className?: string;
+  disabled?: boolean;
+  disabledTooltip?: string;
 }
 
 export function RejectBookingButton({
@@ -26,6 +27,8 @@ export function RejectBookingButton({
   size = "base",
   color = "secondary",
   className,
+  disabled = false,
+  disabledTooltip,
 }: RejectBookingButtonProps) {
   const { t } = useLocale();
 
@@ -52,7 +55,8 @@ export function RejectBookingButton({
         size={size}
         className={className}
         onClick={handleReject}
-        disabled={isPending}
+        disabled={isPending || disabled}
+        tooltip={disabled ? disabledTooltip : undefined}
         data-booking-uid={bookingUid}
         data-testid="reject">
         {rejectLabel}

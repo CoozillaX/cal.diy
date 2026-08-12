@@ -2,6 +2,7 @@ import { getPaymentAppData } from "@calcom/app-store/_utils/payments/getPaymentA
 import type { getEventLocationValue } from "@calcom/app-store/locations";
 import { getSuccessPageLocationMessage, guessEventLocationType } from "@calcom/app-store/locations";
 import dayjs from "@calcom/dayjs";
+import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
@@ -37,6 +38,7 @@ import { MeetingTimeInTimezones } from "@calcom/ui/components/popover";
 import { showToast } from "@calcom/ui/components/toast";
 import { Tooltip } from "@calcom/ui/components/tooltip";
 import assignmentReasonBadgeTitleMap from "@lib/booking/assignmentReasonBadgeTitleMap";
+import { useTeamPermissions } from "~/teams/hooks/useTeamPermissions";
 import { buildBookingLink } from "../../modules/bookings/lib/buildBookingLink";
 import { useBookingDetailsSheetStore } from "../../modules/bookings/store/bookingDetailsSheetStore";
 import type { BookingAttendee } from "../../modules/bookings/types";
@@ -181,6 +183,15 @@ function BookingListItem(booking: BookingItemProps) {
   const userSeat = booking.seatsReferences.find((seat) => !!userEmail && seat.attendee?.email === userEmail);
 
   const isAttendee = !!userSeat;
+
+  // Organizer/host actions are always allowed regardless of team permission settings - those
+  // settings only gate a team member acting on someone else's booking (see handleCancelBooking.ts
+  // and BookingAccessService for the equivalent server-side bypass).
+  const isOrganizer = booking.loggedInUser.userId === booking.user?.id;
+  const isEventTypeHost = booking.eventType?.hosts?.some((host) => host.user?.email === userEmail) ?? false;
+  const isOrganizerOrHost = isOrganizer || isEventTypeHost;
+  const { hasPermission } = useTeamPermissions(booking.eventType?.team?.id);
+  const confirmPermissionDenied = !isOrganizerOrHost && !hasPermission(TEAM_PERMISSIONS.BOOKING_CONFIRM);
 
   const paymentAppData = getPaymentAppData(booking.eventType);
 
@@ -526,6 +537,8 @@ function BookingListItem(booking: BookingItemProps) {
                 isRecurring={isRecurring}
                 isTabRecurring={isTabRecurring}
                 isTabUnconfirmed={isTabUnconfirmed}
+                disabled={confirmPermissionDenied}
+                disabledTooltip={t("team_permission_denied_tooltip")}
               />
               <AcceptBookingButton
                 bookingId={booking.id}
@@ -534,6 +547,8 @@ function BookingListItem(booking: BookingItemProps) {
                 isRecurring={isRecurring}
                 isTabRecurring={isTabRecurring}
                 isTabUnconfirmed={isTabUnconfirmed}
+                disabled={confirmPermissionDenied}
+                disabledTooltip={t("team_permission_denied_tooltip")}
               />
             </div>
           )}

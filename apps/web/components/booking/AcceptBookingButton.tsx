@@ -1,6 +1,5 @@
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { Button } from "@calcom/ui/components/button";
-
 import { useBookingConfirmation } from "./hooks/useBookingConfirmation";
 
 interface AcceptBookingButtonProps {
@@ -13,6 +12,8 @@ interface AcceptBookingButtonProps {
   size?: "sm" | "base" | "lg";
   color?: "primary" | "secondary" | "minimal" | "destructive";
   className?: string;
+  disabled?: boolean;
+  disabledTooltip?: string;
 }
 
 export function AcceptBookingButton({
@@ -25,6 +26,8 @@ export function AcceptBookingButton({
   size = "base",
   color = "primary",
   className,
+  disabled = false,
+  disabledTooltip,
 }: AcceptBookingButtonProps) {
   const { t } = useLocale();
 
@@ -42,7 +45,8 @@ export function AcceptBookingButton({
       size={size}
       className={className}
       onClick={() => bookingConfirm({ bookingId, confirmed: true, recurringEventId })}
-      disabled={isPending}
+      disabled={isPending || disabled}
+      tooltip={disabled ? disabledTooltip : undefined}
       data-booking-uid={bookingUid}
       data-testid="confirm">
       {confirmLabel}
