@@ -8,34 +8,23 @@ function generateIdempotencyKey({
   endTime,
   userId,
   reassignedById,
-  attendeeEmails,
 }: {
   startTime: Date | string;
   endTime: Date | string;
   userId?: number;
   reassignedById?: number | null;
-  attendeeEmails?: string[];
 }) {
-  // Attendee emails are folded in so that two *different* attendees can each get their own
-  // accepted booking at the identical (organizer, startTime, endTime) tuple - needed for a host
-  // marked Host.ignoreTimeConflicts, who can legitimately hold more than one booking at once.
-  // A resubmission by the same attendee (double-click, retry) still hashes to the same key since
-  // their email doesn't change, so that dedup guarantee is unaffected.
-  const attendeeSuffix = attendeeEmails?.length
-    ? `.${[...attendeeEmails].sort().join(",").toLowerCase()}`
-    : "";
+  // The current timestamp is folded in so every accepted-booking create() gets its own key -
+  // needed for a host marked Host.ignoreTimeConflicts, who can legitimately hold more than one
+  // accepted booking at the identical (organizer, startTime, endTime) tuple. This intentionally
+  // gives up the key's original "same requester double-clicking Confirm dedupes to one booking"
+  // behavior - attendee email would have been a more surgical differentiator, but it's a
+  // client-supplied, unverified value on the public booking form and trivially spoofable, so it
+  // isn't a real guarantee of "same requester" either.
   return uuidv5(
-    `${startTime.valueOf()}.${endTime.valueOf()}.${userId}${reassignedById ? `.${reassignedById}` : ""}${attendeeSuffix}`,
+    `${startTime.valueOf()}.${endTime.valueOf()}.${userId}${reassignedById ? `.${reassignedById}` : ""}.${Date.now()}`,
     uuidv5.URL
   );
-}
-
-function getAttendeeEmailsFromCreateInput(
-  attendees: Prisma.BookingCreateInput["attendees"]
-): string[] | undefined {
-  const data = attendees && "createMany" in attendees ? attendees.createMany?.data : undefined;
-  if (!data) return undefined;
-  return (Array.isArray(data) ? data : [data]).map((attendee) => attendee.email);
 }
 
 export function bookingIdempotencyKeyExtension() {
@@ -49,7 +38,6 @@ export function bookingIdempotencyKeyExtension() {
               endTime: args.data.endTime,
               userId: args.data.user?.connect?.id,
               reassignedById: args.data.reassignById,
-              attendeeEmails: getAttendeeEmailsFromCreateInput(args.data.attendees),
             });
             args.data.idempotencyKey = idempotencyKey;
           }
