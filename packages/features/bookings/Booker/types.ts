@@ -91,7 +91,6 @@ export interface BookerProps {
   crmRecordId?: string | null;
   userLocale?: string | null;
   hasValidLicense?: boolean;
-  useApiV2?: boolean;
 }
 
 export type ToggledConnectedCalendars = {

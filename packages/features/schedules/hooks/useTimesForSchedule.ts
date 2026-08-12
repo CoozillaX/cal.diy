@@ -1,10 +1,9 @@
-import { shallow } from "zustand/shallow";
-
 import dayjs from "@calcom/dayjs";
 import { useBookerStoreContext } from "@calcom/features/bookings/Booker/BookerStoreProvider";
 import type { BookerState } from "@calcom/features/bookings/Booker/types";
 import { getPrefetchMonthCount } from "@calcom/features/bookings/Booker/utils/getPrefetchMonthCount";
 import { isPrefetchNextMonthEnabled } from "@calcom/features/bookings/Booker/utils/isPrefetchNextMonthEnabled";
+import { shallow } from "zustand/shallow";
 
 type UseScheduleWithCacheArgs = {
   username?: string | null;
@@ -19,7 +18,6 @@ type UseScheduleWithCacheArgs = {
   isTeamEvent?: boolean;
   orgSlug?: string;
   teamMemberEmail?: string | null;
-  useApiV2?: boolean;
   enabled?: boolean;
   /***
    * Required when prefetching is needed

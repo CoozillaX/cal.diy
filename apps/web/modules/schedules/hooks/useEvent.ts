@@ -1,11 +1,9 @@
-import { shallow } from "zustand/shallow";
-
 import { useBookerStoreContext } from "@calcom/features/bookings/Booker/BookerStoreProvider";
-import { useSchedule } from "@calcom/web/modules/schedules/hooks/useSchedule";
+import { useBookerTime } from "@calcom/features/bookings/Booker/hooks/useBookerTime";
 import { useCompatSearchParams } from "@calcom/lib/hooks/useCompatSearchParams";
 import { trpc } from "@calcom/trpc/react";
-
-import { useBookerTime } from "@calcom/features/bookings/Booker/hooks/useBookerTime";
+import { useSchedule } from "@calcom/web/modules/schedules/hooks/useSchedule";
+import { shallow } from "zustand/shallow";
 
 export type useEventReturnType = ReturnType<typeof useEvent>;
 export type useScheduleForEventReturnType = ReturnType<typeof useScheduleForEvent>;
@@ -69,7 +67,6 @@ export const useScheduleForEvent = ({
   orgSlug,
   teamMemberEmail,
   isTeamEvent,
-  useApiV2 = true,
   bookerLayout,
 }: {
   username?: string | null;
@@ -83,7 +80,6 @@ export const useScheduleForEvent = ({
   teamMemberEmail?: string | null;
   fromRedirectOfNonOrgLink?: boolean;
   isTeamEvent?: boolean;
-  useApiV2?: boolean;
   /**
    * Required when prefetching is needed
    */
@@ -115,7 +111,6 @@ export const useScheduleForEvent = ({
     isTeamEvent,
     orgSlug,
     teamMemberEmail,
-    useApiV2: useApiV2,
     bookerLayout,
   });
 

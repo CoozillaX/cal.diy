@@ -147,7 +147,6 @@ const BookerWebWrapperComponent = (props: BookerWebWrapperAtomProps): JSX.Elemen
     teamMemberEmail: props.teamMemberEmail,
     fromRedirectOfNonOrgLink: props.entity.fromRedirectOfNonOrgLink,
     isTeamEvent: props.isTeamEvent ?? !!event.data?.team,
-    useApiV2: props.useApiV2,
     bookerLayout,
     ...(props.entity.orgSlug ? { orgSlug: props.entity.orgSlug } : {}),
   });

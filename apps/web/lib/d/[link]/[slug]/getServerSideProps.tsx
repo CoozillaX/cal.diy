@@ -126,11 +126,8 @@ async function getUserPageProps(context: GetServerSidePropsContext) {
     return notFound;
   }
 
-  const useApiV2 = false;
-
   return {
     props: {
-      useApiV2,
       eventData,
       entity: eventData.entity,
       duration: getMultipleDurationValue(

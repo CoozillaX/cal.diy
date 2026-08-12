@@ -8,7 +8,6 @@ import { getRoutedTeamMemberIdsFromSearchParams } from "@calcom/lib/bookings/get
 import { PUBLIC_QUERY_AVAILABLE_SLOTS_INTERVAL_SECONDS } from "@calcom/lib/constants";
 import { trpc } from "@calcom/trpc/react";
 import { useSearchParams } from "next/navigation";
-import { useApiV2AvailableSlots } from "./useApiV2AvailableSlots";
 
 export type UseScheduleWithCacheArgs = {
   username?: string | null;
@@ -23,7 +22,6 @@ export type UseScheduleWithCacheArgs = {
   isTeamEvent?: boolean;
   orgSlug?: string;
   teamMemberEmail?: string | null;
-  useApiV2?: boolean;
   enabled?: boolean;
   /***
    * Required when prefetching is needed
@@ -61,7 +59,6 @@ export const useSchedule = ({
   isTeamEvent,
   orgSlug,
   teamMemberEmail,
-  useApiV2 = false,
   enabled: enabledProp = true,
   bookerLayout,
 }: UseScheduleWithCacheArgs) => {
@@ -135,44 +132,11 @@ export const useSchedule = ({
       enabledProp,
   };
 
-  const isCallingApiV2Slots = useApiV2 && Boolean(isTeamEvent) && options.enabled;
-
-  // API V2 query for team events
-  const teamScheduleV2 = useApiV2AvailableSlots({
-    ...input,
-    enabled: isCallingApiV2Slots,
-    duration: input.duration ? Number(input.duration) : undefined,
-    routedTeamMemberIds: input.routedTeamMemberIds ?? undefined,
-    teamMemberEmail: input.teamMemberEmail ?? undefined,
-    eventTypeId: eventId ?? undefined,
-  });
-
-  const schedule = trpc.viewer.slots.getSchedule.useQuery(input, {
-    ...options,
-    // Only enable if we're not using API V2
-    enabled: options.enabled && !isCallingApiV2Slots,
-  });
-
-  if (isCallingApiV2Slots && !teamScheduleV2.failureReason) {
-    updateEmbedBookerState({
-      bookerState,
-      slotsQuery: teamScheduleV2,
-    });
-
-    if (teamScheduleV2.isSuccess && eventId && eventSlug) {
-      sdkActionManager?.fire("availabilityLoaded", getAvailabilityLoadedEventPayload({ eventId, eventSlug }));
-    }
-
-    return {
-      ...teamScheduleV2,
-      /**
-       * Invalidates the request and resends it regardless of any other configuration including staleTime
-       */
-      invalidate: () => {
-        return teamScheduleV2.refetch();
-      },
-    };
-  }
+  // Team event slots used to be optionally fetched from the separate apps/api/v2 platform
+  // service (useApiV2AvailableSlots) instead of tRPC - reverted back to tRPC for everyone
+  // (team and personal events alike), since that service isn't part of this app's own
+  // deployment and there was no fallback if it was unreachable.
+  const schedule = trpc.viewer.slots.getSchedule.useQuery(input, options);
 
   updateEmbedBookerState({
     bookerState,
