@@ -1,17 +1,17 @@
+import { getTeamPermissionSettingService } from "@calcom/features/teams/di/TeamPermissionSettingService.container";
+import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import { prisma } from "@calcom/prisma";
 import type {
-  Booking,
-  EventType,
-  BookingReference,
   Attendee,
+  Booking,
+  BookingReference,
   Credential,
   DestinationCalendar,
+  EventType,
   User,
 } from "@calcom/prisma/client";
-import { MembershipRole, SchedulingType } from "@calcom/prisma/enums";
-
+import { SchedulingType } from "@calcom/prisma/enums";
 import { TRPCError } from "@trpc/server";
-
 import authedProcedure from "../../../procedures/authedProcedure";
 import { commonBookingSchema } from "./types";
 
@@ -49,18 +49,16 @@ export const bookingsProcedure = authedProcedure
       },
     };
 
-    const bookingByBeingAdmin = await prisma.booking.findFirst({
+    // Team members (any role) are candidates here; whether they're actually allowed to edit
+    // this booking's location is decided below by the team's configured minimum role for
+    // "booking.editLocation", not a hardcoded ADMIN/OWNER check.
+    const bookingByTeamMembership = await prisma.booking.findFirst({
       where: {
         id: bookingId,
         eventType: {
           team: {
             members: {
-              some: {
-                userId: loggedInUser.id,
-                role: {
-                  in: [MembershipRole.ADMIN, MembershipRole.OWNER],
-                },
-              },
+              some: { userId: loggedInUser.id },
             },
           },
         },
@@ -68,8 +66,17 @@ export const bookingsProcedure = authedProcedure
       include: bookingInclude,
     });
 
-    if (!!bookingByBeingAdmin) {
-      return next({ ctx: { booking: bookingByBeingAdmin } });
+    const teamId = bookingByTeamMembership?.eventType?.team?.id;
+    const hasEditLocationPermission =
+      !!teamId &&
+      (await getTeamPermissionSettingService().hasPermission({
+        teamId,
+        userId: loggedInUser.id,
+        permissionKey: TEAM_PERMISSIONS.BOOKING_EDIT_LOCATION,
+      }));
+
+    if (bookingByTeamMembership && hasEditLocationPermission) {
+      return next({ ctx: { booking: bookingByTeamMembership } });
     }
 
     const bookingByBeingOrganizerOrCollectiveEventMember = await prisma.booking.findFirst({

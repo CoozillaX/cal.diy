@@ -1,10 +1,11 @@
 import { AttendeeRepository } from "@calcom/features/bookings/repositories/AttendeeRepository";
 import { BookingRepository } from "@calcom/features/bookings/repositories/BookingRepository";
 import { BookingAccessService } from "@calcom/features/bookings/services/BookingAccessService";
+import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import { WebhookService } from "@calcom/features/webhooks/lib/WebhookService";
+import { getTranslation } from "@calcom/i18n/server";
 import { HttpError } from "@calcom/lib/http-error";
 import logger from "@calcom/lib/logger";
-import { getTranslation } from "@calcom/i18n/server";
 import { getTimeFormatStringFromUserTimeFormat } from "@calcom/lib/timeFormat";
 import { prisma } from "@calcom/prisma";
 import { WebhookTriggerEvents } from "@calcom/prisma/enums";
@@ -217,11 +218,28 @@ const handleMarkNoShow = async ({
     }
 
     if (noShowHost !== undefined) {
+      // Only gate the authenticated path (loggedInViewer.markNoShow, userId set) - the public
+      // markHostAsNoShow endpoint (e.g. from an SMS/email link) is intentionally anonymous and
+      // must keep working unchanged, same as guest self-cancel.
+      if (userId) {
+        const bookingAccessService = new BookingAccessService(prisma);
+        const isAuthorizedToMarkHostNoShow = await bookingAccessService.doesUserIdHaveAccessToBooking({
+          userId,
+          bookingUid,
+          permission: TEAM_PERMISSIONS.BOOKING_MARK_NO_SHOW,
+        });
+        if (!isAuthorizedToMarkHostNoShow) {
+          throw new HttpError({
+            statusCode: 403,
+            message: "You are not allowed to mark this booking's host as no-show",
+          });
+        }
+      }
+
       await bookingRepository.updateNoShowHost({ bookingUid, noShowHost });
       responsePayload.setNoShowHost(noShowHost);
       responsePayload.setMessage(t("booking_no_show_updated"));
     }
-
 
     return responsePayload.getPayload();
   } catch (error) {
@@ -281,6 +299,7 @@ const assertCanAccessBooking = async (bookingUid: string, userId?: number) => {
   const isAuthorized = await bookingAccessService.doesUserIdHaveAccessToBooking({
     userId,
     bookingUid,
+    permission: TEAM_PERMISSIONS.BOOKING_MARK_NO_SHOW,
   });
 
   if (!isAuthorized)

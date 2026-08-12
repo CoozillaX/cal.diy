@@ -1,13 +1,61 @@
+import { MembershipRepository } from "@calcom/features/membership/repositories/MembershipRepository";
+import { getTeamPermissionSettingService } from "@calcom/features/teams/di/TeamPermissionSettingService.container";
+import { TEAM_PERMISSIONS, type TeamPermissionKey } from "@calcom/features/teams/lib/teamPermissions";
 import { UserRepository } from "@calcom/features/users/repositories/UserRepository";
 import type { PrismaClient } from "@calcom/prisma";
 import { MembershipRole } from "@calcom/prisma/enums";
 import { BookingRepository } from "../repositories/BookingRepository";
 
+const TEAM_PERMISSION_KEYS = new Set<string>(Object.values(TEAM_PERMISSIONS));
+
+function isTeamPermissionKey(permission: string | undefined): permission is TeamPermissionKey {
+  return !!permission && TEAM_PERMISSION_KEYS.has(permission);
+}
+
+// Duplicated (rather than imported) from packages/trpc/.../eventTypes/permissionCheckService.ts:
+// packages/features must not import from @calcom/trpc (architecture-circular-dependencies.md),
+// so each side keeps its own small copy of the same "configured override, else fallbackRoles" logic.
 class PermissionCheckService {
-  constructor(_prisma?: unknown) {}
-  async checkPermission(..._args: unknown[]) { return true; }
-  async hasPermission(..._args: unknown[]) { return true; }
-  async getTeamIdsWithPermission(..._args: unknown[]): Promise<number[]> { return []; }
+  constructor(private readonly membershipRepository: MembershipRepository = new MembershipRepository()) {}
+
+  async checkPermission({
+    userId,
+    teamId,
+    permission,
+    fallbackRoles,
+  }: {
+    userId: number;
+    teamId: number;
+    permission?: string;
+    fallbackRoles: MembershipRole[];
+  }): Promise<boolean> {
+    // "booking.readTeamBookings" is the only permission in the curated catalog this service
+    // checks; "booking.readOrgBookings" and other ad-hoc strings fall back to fallbackRoles.
+    if (isTeamPermissionKey(permission)) {
+      return getTeamPermissionSettingService().hasPermission({ teamId, userId, permissionKey: permission });
+    }
+
+    const membership = await this.membershipRepository.findUniqueByUserIdAndTeamId({ userId, teamId });
+    return !!membership?.accepted && fallbackRoles.includes(membership.role);
+  }
+
+  async hasPermission(args: Parameters<PermissionCheckService["checkPermission"]>[0]): Promise<boolean> {
+    return this.checkPermission(args);
+  }
+
+  async getTeamIdsWithPermission({
+    userId,
+    fallbackRoles,
+  }: {
+    userId: number;
+    fallbackRoles: MembershipRole[];
+  }): Promise<number[]> {
+    const memberships = await this.membershipRepository.findAllByUserId({
+      userId,
+      filters: { accepted: true, roles: fallbackRoles },
+    });
+    return memberships.map((membership) => membership.teamId);
+  }
 }
 
 type BookingForAccessCheck = NonNullable<Awaited<ReturnType<BookingRepository["findByUidIncludeEventType"]>>>;
@@ -57,10 +105,15 @@ export class BookingAccessService {
     userId,
     bookingUid,
     bookingId,
+    permission = TEAM_PERMISSIONS.BOOKING_READ_TEAM_BOOKINGS,
   }: {
     userId: number;
     bookingUid?: string;
     bookingId?: number;
+    /** Which catalog permission gates team-level access here - defaults to plain read access
+     * (used by audit/read call sites); confirm.handler.ts and markNoShow pass their own key so
+     * "who can view" and "who can confirm/mark no-show" can be configured independently. */
+    permission?: TeamPermissionKey;
   }): Promise<boolean> {
     const bookingRepo = new BookingRepository(this.prismaClient);
     const userRepo = new UserRepository(this.prismaClient);
@@ -87,7 +140,7 @@ export class BookingAccessService {
       const hasAccess = await this.permissionCheckService.checkPermission({
         userId,
         teamId,
-        permission: "booking.readTeamBookings",
+        permission,
         fallbackRoles: [MembershipRole.OWNER, MembershipRole.ADMIN],
       });
       return hasAccess;
@@ -128,7 +181,7 @@ export class BookingAccessService {
       const hasAccess = await this.permissionCheckService.checkPermission({
         userId,
         teamId,
-        permission: "booking.readTeamBookings",
+        permission,
         fallbackRoles: [MembershipRole.OWNER, MembershipRole.ADMIN],
       });
       if (hasAccess) return true;
