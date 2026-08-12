@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import type { GroupBase, Props, InputProps, SingleValue, MultiValue } from "react-select";
+import type { GroupBase, Props, InputProps, SelectComponentsConfig, SingleValue, MultiValue } from "react-select";
 import ReactSelect, { components } from "react-select";
 
+import { asSelectComponent } from "@calcom/ui/components/form/select/asSelectComponent";
 import { useGetTheme } from "@calcom/lib/hooks/useTheme";
 import classNames from "@calcom/ui/classNames";
 
@@ -15,8 +16,9 @@ export const InputComponent = <Option, IsMulti extends boolean, Group extends Gr
   inputClassName,
   ...props
 }: InputProps<Option, IsMulti, Group>) => {
+  const Input = asSelectComponent<InputProps<Option, IsMulti, Group>>(components.Input);
   return (
-    <components.Input
+    <Input
       // disables our default form focus highlight on the react-select input element
       inputClassName={classNames("focus:ring-0 focus:ring-offset-0", inputClassName)}
       {...props}
@@ -111,11 +113,13 @@ function Select<
             },
           }),
       }}
-      components={{
-        ...components,
-        IndicatorSeparator: () => null,
-        Input: InputComponent,
-      }}
+      components={
+        {
+          ...components,
+          IndicatorSeparator: () => null,
+          Input: InputComponent,
+        } as unknown as SelectComponentsConfig<Option, IsMulti, Group>
+      }
       className={classNames("border-0 text-sm", className)}
       {...props}
     />

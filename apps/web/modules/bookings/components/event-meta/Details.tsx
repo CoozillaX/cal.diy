@@ -136,7 +136,10 @@ export const EventDetails = ({ event, blocks = defaultEventDetailsBlocks }: Even
     <>
       {blocks.map((block) => {
         if (typeof block === "function") {
-          return <Fragment key={block.name}>{block(event)}</Fragment>;
+          // React 19's `ReactNode` includes `Promise<ReactNode>` for async components, which
+          // doesn't structurally self-assign through Fragment's children in a generic callback's
+          // return position. These blocks are always plain synchronous components.
+          return <Fragment key={block.name}>{block(event) as React.ReactElement | null}</Fragment>;
         }
 
         switch (block) {

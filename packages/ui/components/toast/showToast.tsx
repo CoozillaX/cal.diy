@@ -1,5 +1,6 @@
 import { CheckIcon, InfoIcon, XIcon } from "@coss/ui/icons";
 import classNames from "classnames";
+import type { JSX } from "react";
 import type { ExternalToast } from "sonner";
 import { toast } from "sonner";
 

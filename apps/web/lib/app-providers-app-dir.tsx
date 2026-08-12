@@ -13,6 +13,7 @@ import type { Session } from "next-auth";
 import { useSession } from "next-auth/react";
 import { ThemeProvider } from "next-themes";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import type { JSX } from "react";
 import { getThemeProviderProps } from "./getThemeProviderProps";
 
 // Workaround for https://github.com/vercel/next.js/issues/8592

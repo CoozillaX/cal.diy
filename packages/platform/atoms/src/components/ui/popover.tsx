@@ -4,6 +4,7 @@ when building atoms package this will automatically replace the PopoverPrimitive
 ensuring that we don't have issues with atoms.
 */
 import * as PopoverPrimitives from "@radix-ui/react-popover-atoms";
+import type { JSX } from "react";
 
 const Popover: typeof PopoverPrimitives.Root = PopoverPrimitives.Root;
 const PopoverTrigger: typeof PopoverPrimitives.Trigger = PopoverPrimitives.Trigger;

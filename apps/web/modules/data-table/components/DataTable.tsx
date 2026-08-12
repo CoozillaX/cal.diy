@@ -25,7 +25,7 @@ import { useColumnSizingVars } from "~/data-table/hooks/useColumnSizingVars";
 
 export type DataTablePropsFromWrapper<TData> = {
   table: ReactTableType<TData>;
-  tableContainerRef: React.RefObject<HTMLDivElement>;
+  tableContainerRef: React.RefObject<HTMLDivElement | null>;
   isPending?: boolean;
   variant?: "default" | "compact";
   testId?: string;
@@ -280,7 +280,7 @@ type DataTableBodyProps<TData> = {
   hideSeparatorsOnSort?: boolean;
   hideSeparatorsOnFilter?: boolean;
   separatorClassName?: string;
-  tableContainerRef: React.RefObject<HTMLDivElement>;
+  tableContainerRef: React.RefObject<HTMLDivElement | null>;
 };
 
 type RowToRender<TData> = {
@@ -288,16 +288,25 @@ type RowToRender<TData> = {
   virtualItem?: VirtualItem;
 };
 
-function SeparatorRowRenderer({ separator, className }: { separator: SeparatorRow; className?: string }) {
+function SeparatorRowRenderer({
+  separator,
+  className,
+  colSpan,
+}: {
+  separator: SeparatorRow;
+  className?: string;
+  colSpan: number;
+}) {
   return (
-    <div
+    <TableCell
+      colSpan={colSpan}
       className={classNames(
         "bg-cal-muted text-emphasis w-full px-3 py-2 font-semibold",
         separator.className,
         className
       )}>
       {separator.label}
-    </div>
+    </TableCell>
   );
 }
 
@@ -388,7 +397,11 @@ function DataTableBody<TData>({
                 }),
               }}
               className="hover:bg-subtle border-muted flex w-full border-b">
-              <SeparatorRowRenderer separator={row.original as SeparatorRow} className={separatorClassName} />
+              <SeparatorRowRenderer
+                separator={row.original as SeparatorRow}
+                className={separatorClassName}
+                colSpan={table.getAllColumns().length}
+              />
             </TableRow>
           );
         }

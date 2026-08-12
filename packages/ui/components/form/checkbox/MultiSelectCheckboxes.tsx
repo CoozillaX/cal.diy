@@ -12,6 +12,7 @@ import type { Props } from "react-select";
 
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import classNames from "@calcom/ui/classNames";
+import { asSelectComponent } from "@calcom/ui/components/form/select/asSelectComponent";
 
 import { Select } from "../select";
 
@@ -19,6 +20,8 @@ export type Option = {
   value: string;
   label: string;
 };
+
+const OptionTag = asSelectComponent<OptionProps<Option, boolean, GroupBase<Option>>>(components.Option);
 
 const InputOption: React.FC<OptionProps<Option, boolean, GroupBase<Option>>> = ({
   isDisabled,
@@ -33,7 +36,7 @@ const InputOption: React.FC<OptionProps<Option, boolean, GroupBase<Option>>> = (
   };
 
   return (
-    <components.Option
+    <OptionTag
       {...rest}
       isDisabled={isDisabled}
       isFocused={isFocused}
@@ -46,7 +49,7 @@ const InputOption: React.FC<OptionProps<Option, boolean, GroupBase<Option>>> = (
         readOnly
       />
       {children}
-    </components.Option>
+    </OptionTag>
   );
 };
 

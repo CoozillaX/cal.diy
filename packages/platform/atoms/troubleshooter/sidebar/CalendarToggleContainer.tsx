@@ -1,4 +1,5 @@
 import { CalendarToggleContainerComponent } from "@calcom/features/troubleshooter/components/CalendarToggleContainerComponent";
+import type { JSX } from "react";
 import { useConnectedCalendars } from "../../hooks/useConnectedCalendars";
 
 interface CalendarToggleContainerProps {
@@ -16,12 +17,8 @@ export function CalendarToggleContainer({
     <CalendarToggleContainerComponent
       connectedCalendars={calendars.data?.connectedCalendars ?? []}
       isLoading={calendars.isLoading}
-      {...(onManageCalendarsClick
-        ? { manageCalendarsAction: { onClick: onManageCalendarsClick } }
-        : {})}
-      {...(onInstallCalendarClick
-        ? { installCalendarAction: { onClick: onInstallCalendarClick } }
-        : {})}
+      {...(onManageCalendarsClick ? { manageCalendarsAction: { onClick: onManageCalendarsClick } } : {})}
+      {...(onInstallCalendarClick ? { installCalendarAction: { onClick: onInstallCalendarClick } } : {})}
     />
   );
 }

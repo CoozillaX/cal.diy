@@ -1,12 +1,11 @@
-import { useState } from "react";
-import { Controller, useFormContext } from "react-hook-form";
-
 import { LearnMoreLink } from "@calcom/features/eventtypes/components/LearnMoreLink";
 import type { FormValues } from "@calcom/features/eventtypes/lib/types";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import classNames from "@calcom/ui/classNames";
-import { SettingsToggle } from "@calcom/ui/components/form";
-import { TextField, CheckboxField } from "@calcom/ui/components/form";
+import { CheckboxField, SettingsToggle, TextField } from "@calcom/ui/components/form";
+import type { JSX } from "react";
+import { useState } from "react";
+import { Controller, useFormContext } from "react-hook-form";
 
 type maxActiveBookingsPerBookerLockedProps = {
   disabled: boolean;

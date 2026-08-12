@@ -15,7 +15,7 @@ export const fadeInLeft = {
   initial: "hidden",
   exit: "hidden",
   animate: "visible",
-  transition: { ease: "easeInOut", delay: 0.1 },
+  transition: { ease: "easeInOut", delay: 0.1 } as const,
 };
 export const fadeInUp = {
   variants: {
@@ -25,7 +25,7 @@ export const fadeInUp = {
   initial: "hidden",
   exit: "hidden",
   animate: "visible",
-  transition: { ease: "easeInOut", delay: 0.1 },
+  transition: { ease: "easeInOut", delay: 0.1 } as const,
 };
 
 export const fadeInRight = {
@@ -36,7 +36,7 @@ export const fadeInRight = {
   initial: "hidden",
   exit: "hidden",
   animate: "visible",
-  transition: { ease: "easeInOut", delay: 0.1 },
+  transition: { ease: "easeInOut", delay: 0.1 } as const,
 };
 
 type ResizeAnimationConfig = {

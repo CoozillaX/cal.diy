@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { useUpdateDestinationCalendars } from "../../hooks/calendars/useUpdateDestinationCalendars";
 import { useConnectedCalendars } from "../../hooks/useConnectedCalendars";
 import { AtomsWrapper } from "../../src/components/atoms-wrapper";

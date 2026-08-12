@@ -1,17 +1,13 @@
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { Skeleton } from "@calcom/ui/components/skeleton";
+import type { JSX } from "react";
 import { CalendarToggleContainer } from "./CalendarToggleContainer";
 import { EventScheduleItem } from "./EventScheduleItem";
 import { EventTypeSelect } from "./EventTypeSelect";
 
 const SidebarHeading = ({ name }: { name: string }): JSX.Element => {
   return (
-    <Skeleton
-      title={name}
-      as="p"
-      className="max-w-36 min-h-4 truncate font-semibold"
-      loadingClassName="ms-3"
-    >
+    <Skeleton title={name} as="p" className="max-w-36 min-h-4 truncate font-semibold" loadingClassName="ms-3">
       {name}
     </Skeleton>
   );

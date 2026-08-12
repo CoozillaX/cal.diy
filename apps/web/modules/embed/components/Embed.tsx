@@ -32,6 +32,7 @@ import { trpc } from "@calcom/trpc/react";
 import { Button } from "@calcom/ui/components/button";
 import { DialogClose, DialogContent, DialogFooter } from "@calcom/ui/components/dialog";
 import { ColorPicker, Label, Select, Switch, TextField } from "@calcom/ui/components/form";
+import { asSelectComponent } from "@calcom/ui/components/form/select/asSelectComponent";
 import { HorizontalTabs } from "@calcom/ui/components/navigation";
 import { showToast } from "@calcom/ui/components/toast";
 import { AvailableTimes } from "@calcom/web/modules/bookings/components/AvailableTimes";
@@ -179,15 +180,19 @@ function useEmbedGoto(noQueryParamMode = false) {
   return { gotoState, resetState, gotoEmbedTypeSelectionState };
 }
 
+const ThemeSelectControlTag = asSelectComponent<ControlProps<{ value: EmbedTheme; label: string }, false>>(
+  components.Control
+);
+
 const ThemeSelectControl = ({
   children,
   ...props
 }: ControlProps<{ value: EmbedTheme; label: string }, false>) => {
   return (
-    <components.Control {...props}>
+    <ThemeSelectControlTag {...props}>
       <SunIcon className="text-subtle mr-2 h-4 w-4" />
       {children}
-    </components.Control>
+    </ThemeSelectControlTag>
   );
 };
 
@@ -474,7 +479,7 @@ const EmailEmbedPreview = ({
 }: {
   eventType: EventType;
   timezone?: string;
-  emailContentRef: RefObject<HTMLDivElement>;
+  emailContentRef: RefObject<HTMLDivElement | null>;
   username?: string;
   month?: string;
   selectedDateAndTime: { [key: string]: string[] };
@@ -759,7 +764,7 @@ const EmbedTypeCodeAndPreviewDialogContent = ({
           }),
     };
   });
-  const embedCodeRefs: Record<(typeof tabs)[0]["name"], RefObject<HTMLTextAreaElement>> = {};
+  const embedCodeRefs: Record<(typeof tabs)[0]["name"], RefObject<HTMLTextAreaElement | null>> = {};
   tabs
     .filter((tab) => tab.type === "code")
     .forEach((codeTab) => {

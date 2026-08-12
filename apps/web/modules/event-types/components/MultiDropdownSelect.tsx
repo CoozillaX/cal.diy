@@ -3,6 +3,7 @@ import { components } from "react-select";
 
 import { Icon } from "@calcom/ui/components/icon";
 import { Select } from "@calcom/ui/components/form";
+import { asSelectComponent } from "@calcom/ui/components/form/select/asSelectComponent";
 
 // Helper to merge react-select styles with type safety
 const mergeStyles = (base: CSSObjectWithLabel, overrides: Record<string, unknown>): CSSObjectWithLabel => {
@@ -13,8 +14,11 @@ const LimitedChipsContainer = <Option, IsMulti extends boolean, Group extends Gr
   children,
   ...props
 }: ValueContainerProps<Option, IsMulti, Group>) => {
+  const ValueContainerTag = asSelectComponent<ValueContainerProps<Option, IsMulti, Group>>(
+    components.ValueContainer
+  );
   if (!props.hasValue) {
-    return <components.ValueContainer {...props}>{children as React.ReactNode[]}</components.ValueContainer>;
+    return <ValueContainerTag {...props}>{children as React.ReactNode[]}</ValueContainerTag>;
   }
   const CHIPS_LIMIT = 2;
   // TODO:: fix the following ts error
@@ -24,7 +28,7 @@ const LimitedChipsContainer = <Option, IsMulti extends boolean, Group extends Gr
   const displayChips = chips.slice(overflowCounter, overflowCounter + CHIPS_LIMIT);
 
   return (
-    <components.ValueContainer {...props}>
+    <ValueContainerTag {...props}>
       {displayChips}
       {overflowCounter > 0 && (
         <span className="bg-subtle text-default flex items-center justify-center rounded-md px-2 py-[5px] text-[14px] font-medium leading-4">
@@ -35,7 +39,7 @@ const LimitedChipsContainer = <Option, IsMulti extends boolean, Group extends Gr
         </span>
       )}
       {other}
-    </components.ValueContainer>
+    </ValueContainerTag>
   );
 };
 

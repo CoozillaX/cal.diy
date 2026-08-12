@@ -4,7 +4,7 @@ import { useLocale } from "@calcom/lib/hooks/useLocale";
 import classNames from "@calcom/ui/classNames";
 import { EyeIcon, EyeOffIcon, SearchIcon } from "@coss/ui/icons";
 import type React from "react";
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 import { forwardRef, useCallback, useId, useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Alert } from "../../alert";

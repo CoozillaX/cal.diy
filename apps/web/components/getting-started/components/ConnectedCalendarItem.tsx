@@ -1,4 +1,5 @@
 import { UserCalendarSwitch } from "@calcom/web/modules/calendars/components/CalendarSwitch";
+import type { JSX } from "react";
 
 interface IConnectedCalendarItem {
   name: string;
@@ -36,7 +37,8 @@ const ConnectedCalendarItem = (prop: IConnectedCalendarItem): JSX.Element => {
           <div className="fle-row flex">
             <span
               title={externalId}
-              className="mt-1 max-w-44 overflow-hidden text-ellipsis whitespace-nowrap font-sans text-sm text-subtle">
+              className="mt-1 max-w-44 overflow-hidden text-ellipsis whitespace-nowrap font-sans text-sm text-subtle"
+            >
               {externalId}{" "}
             </span>
           </div>

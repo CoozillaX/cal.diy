@@ -1,9 +1,13 @@
 import { getPaymentAppData } from "@calcom/app-store/_utils/payments/getPaymentAppData";
 import type { getEventLocationValue } from "@calcom/app-store/locations";
-import { getSuccessPageLocationMessage, guessEventLocationType } from "@calcom/app-store/locations";
+import {
+  getSuccessPageLocationMessage,
+  guessEventLocationType,
+} from "@calcom/app-store/locations";
 import dayjs from "@calcom/dayjs";
 import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 // TODO: Use browser locale, implement Intl in Dayjs maybe?
@@ -86,7 +90,9 @@ function buildParsedBooking(booking: BookingItemProps) {
       >)
     : null;
 
-  const parsedMetadata = bookingMetadataSchema.safeParse(booking.metadata ?? null);
+  const parsedMetadata = bookingMetadataSchema.safeParse(
+    booking.metadata ?? null
+  );
   const bookingMetadata = parsedMetadata.success ? parsedMetadata.data : null;
 
   return {
@@ -108,31 +114,30 @@ const ConditionalLink = ({
   className?: string;
 }) => {
   const { t } = useLocale();
+  const router = useRouter();
 
-  if (onClick) {
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-      if (e.key === "Enter" || e.key === " ") {
-        e.preventDefault();
-        onClick();
-      }
-    };
+  // Renders a clickable `div` rather than a real `<a>` because `children` can contain its own
+  // anchors (e.g. the attendee's mailto link) - nesting an `<a>` inside an `<a>` is invalid HTML
+  // and breaks hydration.
+  const handleClick = onClick ?? (() => router.push(bookingLink));
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleClick();
+    }
+  };
 
-    return (
-      <div
-        role="button"
-        tabIndex={0}
-        onClick={onClick}
-        onKeyDown={handleKeyDown}
-        className={className}
-        aria-label={t("view_booking_details")}>
-        {children}
-      </div>
-    );
-  }
   return (
-    <Link href={bookingLink} className={className}>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={handleKeyDown}
+      className={className}
+      aria-label={t("view_booking_details")}
+    >
       {children}
-    </Link>
+    </div>
   );
 };
 
@@ -149,7 +154,9 @@ function BookingListItem(booking: BookingItemProps) {
 
   // Get selected booking UID from store
   // The provider should always be available when BookingListItem is rendered (bookingsV3Enabled is true)
-  const selectedBookingUid = useBookingDetailsSheetStore((state) => state.selectedBookingUid);
+  const selectedBookingUid = useBookingDetailsSheetStore(
+    (state) => state.selectedBookingUid
+  );
   const isSelected = !!selectedBookingUid && selectedBookingUid === booking.uid;
 
   // Scroll into view when this booking becomes selected
@@ -180,7 +187,9 @@ function BookingListItem(booking: BookingItemProps) {
   const isTabRecurring = booking.listingStatus === "recurring";
   const isTabUnconfirmed = booking.listingStatus === "unconfirmed";
 
-  const userSeat = booking.seatsReferences.find((seat) => !!userEmail && seat.attendee?.email === userEmail);
+  const userSeat = booking.seatsReferences.find(
+    (seat) => !!userEmail && seat.attendee?.email === userEmail
+  );
 
   const isAttendee = !!userSeat;
 
@@ -188,10 +197,13 @@ function BookingListItem(booking: BookingItemProps) {
   // settings only gate a team member acting on someone else's booking (see handleCancelBooking.ts
   // and BookingAccessService for the equivalent server-side bypass).
   const isOrganizer = booking.loggedInUser.userId === booking.user?.id;
-  const isEventTypeHost = booking.eventType?.hosts?.some((host) => host.user?.email === userEmail) ?? false;
+  const isEventTypeHost =
+    booking.eventType?.hosts?.some((host) => host.user?.email === userEmail) ??
+    false;
   const isOrganizerOrHost = isOrganizer || isEventTypeHost;
   const { hasPermission } = useTeamPermissions(booking.eventType?.team?.id);
-  const confirmPermissionDenied = !isOrganizerOrHost && !hasPermission(TEAM_PERMISSIONS.BOOKING_CONFIRM);
+  const confirmPermissionDenied =
+    !isOrganizerOrHost && !hasPermission(TEAM_PERMISSIONS.BOOKING_CONFIRM);
 
   const paymentAppData = getPaymentAppData(booking.eventType);
 
@@ -202,7 +214,9 @@ function BookingListItem(booking: BookingItemProps) {
   const hasDarkTheme = !forcedTheme && resolvedTheme === "dark";
   const eventTypeColor =
     booking.eventType.eventTypeColor &&
-    booking.eventType.eventTypeColor[hasDarkTheme ? "darkEventTypeColor" : "lightEventTypeColor"];
+    booking.eventType.eventTypeColor[
+      hasDarkTheme ? "darkEventTypeColor" : "lightEventTypeColor"
+    ];
 
   const locationToDisplay = getSuccessPageLocationMessage(
     locationVideoCallUrl ? locationVideoCallUrl : location,
@@ -238,7 +252,8 @@ function BookingListItem(booking: BookingItemProps) {
       !booking.location ||
       booking.location === "integrations:daily" ||
       (typeof booking.location === "string" && booking.location.trim() === ""),
-    showPendingPayment: paymentAppData.enabled && booking.payment.length && !booking.paid,
+    showPendingPayment:
+      paymentAppData.enabled && booking.payment.length && !booking.paid,
     isAttendee,
     cardCharged,
     attendeeList,
@@ -248,7 +263,12 @@ function BookingListItem(booking: BookingItemProps) {
 
   const RequestSentMessage = () => {
     return (
-      <Badge startIcon="send" size="md" variant="gray" data-testid="request_reschedule_sent">
+      <Badge
+        startIcon="send"
+        size="md"
+        variant="gray"
+        data-testid="request_reschedule_sent"
+      >
         {t("reschedule_request_sent")}
       </Badge>
     );
@@ -261,7 +281,13 @@ function BookingListItem(booking: BookingItemProps) {
   const startTime = dayjs(booking.startTime)
     .tz(userTimeZone)
     .locale(language)
-    .format(isUpcoming ? (isDifferentYear ? "ddd, D MMM YYYY" : "ddd, D MMM") : "D MMMM YYYY");
+    .format(
+      isUpcoming
+        ? isDifferentYear
+          ? "ddd, D MMM YYYY"
+          : "ddd, D MMM"
+        : "D MMMM YYYY"
+    );
 
   // Getting accepted recurring dates to show
   const recurringDates = booking.recurringInfo?.bookings[BookingStatus.ACCEPTED]
@@ -277,10 +303,15 @@ function BookingListItem(booking: BookingItemProps) {
 
   const title = booking.title;
 
-  const showPendingPayment = paymentAppData.enabled && booking.payment.length && !booking.paid;
+  const showPendingPayment =
+    paymentAppData.enabled && booking.payment.length && !booking.paid;
 
-  const setIsOpenReportDialog = useBookingActionsStoreContext((state) => state.setIsOpenReportDialog);
-  const setIsCancelDialogOpen = useBookingActionsStoreContext((state) => state.setIsCancelDialogOpen);
+  const setIsOpenReportDialog = useBookingActionsStoreContext(
+    (state) => state.setIsOpenReportDialog
+  );
+  const setIsCancelDialogOpen = useBookingActionsStoreContext(
+    (state) => state.setIsCancelDialogOpen
+  );
   const isOpenWrongAssignmentDialog = useBookingActionsStoreContext(
     (state) => state.isOpenWrongAssignmentDialog
   );
@@ -305,17 +336,29 @@ function BookingListItem(booking: BookingItemProps) {
         "hover:bg-cal-muted",
         isSelected &&
           "bg-cal-muted before:bg-brand-default rounded-r-md before:absolute before:left-0 before:top-0 before:h-full before:w-1"
-      )}>
+      )}
+    >
       <div className="flex flex-col sm:flex-row">
         <div className={COLUMN_CLASSNAMES.time}>
           <div className="flex h-full items-center">
-            {eventTypeColor && <div className="h-[70%] w-0.5" style={{ backgroundColor: eventTypeColor }} />}
-            <ConditionalLink onClick={onClick} bookingLink={bookingLink} className="ml-3">
+            {eventTypeColor && (
+              <div
+                className="h-[70%] w-0.5"
+                style={{ backgroundColor: eventTypeColor }}
+              />
+            )}
+            <ConditionalLink
+              onClick={onClick}
+              bookingLink={bookingLink}
+              className="ml-3"
+            >
               <div className="cursor-pointer py-4">
-                <div className="text-emphasis text-sm leading-6">{startTime}</div>
+                <div className="text-emphasis text-sm leading-6">
+                  {startTime}
+                </div>
                 <div className="text-subtle text-sm">
-                  {formatTime(booking.startTime, userTimeFormat, userTimeZone)} -{" "}
-                  {formatTime(booking.endTime, userTimeFormat, userTimeZone)}
+                  {formatTime(booking.startTime, userTimeFormat, userTimeZone)}{" "}
+                  - {formatTime(booking.endTime, userTimeFormat, userTimeZone)}
                   <MeetingTimeInTimezones
                     timeFormat={userTimeFormat}
                     userTimezone={userTimeZone}
@@ -327,7 +370,8 @@ function BookingListItem(booking: BookingItemProps) {
                 {!isPending && (
                   <div>
                     {(provider?.label ||
-                      (typeof locationToDisplay === "string" && locationToDisplay?.startsWith("https://"))) &&
+                      (typeof locationToDisplay === "string" &&
+                        locationToDisplay?.startsWith("https://"))) &&
                       locationToDisplay.startsWith("http") && (
                         <a
                           href={locationToDisplay}
@@ -335,7 +379,8 @@ function BookingListItem(booking: BookingItemProps) {
                           target="_blank"
                           title={locationToDisplay}
                           rel="noreferrer"
-                          className="text-sm leading-6 text-blue-600 hover:underline dark:text-blue-400">
+                          className="text-sm leading-6 text-blue-600 hover:underline dark:text-blue-400"
+                        >
                           <div className="flex items-center gap-2">
                             {provider?.iconUrl && (
                               // eslint-disable-next-line @next/next/no-img-element
@@ -348,7 +393,9 @@ function BookingListItem(booking: BookingItemProps) {
                               />
                             )}
                             {provider?.label
-                              ? t("join_event_location", { eventLocationType: provider?.label })
+                              ? t("join_event_location", {
+                                  eventLocationType: provider?.label,
+                                })
                               : t("join_meeting")}
                           </div>
                         </a>
@@ -361,15 +408,22 @@ function BookingListItem(booking: BookingItemProps) {
         </div>
         <div
           data-testid="title-and-attendees"
-          className={classNames("flex-1 px-4", isRejected && "line-through")}>
-          <ConditionalLink onClick={onClick} bookingLink={bookingLink} className="flex h-full flex-col">
+          className={classNames("flex-1 px-4", isRejected && "line-through")}
+        >
+          <ConditionalLink
+            onClick={onClick}
+            bookingLink={bookingLink}
+            className="flex h-full flex-col"
+          >
             {/* Time and Badges for mobile */}
             <div className="w-full pb-2 pt-4 sm:hidden">
               <div className="flex w-full items-center justify-between sm:hidden">
-                <div className="text-emphasis text-sm leading-6">{startTime}</div>
+                <div className="text-emphasis text-sm leading-6">
+                  {startTime}
+                </div>
                 <div className="text-subtle pr-2 text-sm">
-                  {formatTime(booking.startTime, userTimeFormat, userTimeZone)} -{" "}
-                  {formatTime(booking.endTime, userTimeFormat, userTimeZone)}
+                  {formatTime(booking.startTime, userTimeFormat, userTimeZone)}{" "}
+                  - {formatTime(booking.endTime, userTimeFormat, userTimeZone)}
                   <MeetingTimeInTimezones
                     timeFormat={userTimeFormat}
                     userTimezone={userTimeZone}
@@ -386,11 +440,19 @@ function BookingListItem(booking: BookingItemProps) {
                 </Badge>
               )}
               {booking.eventType?.team ? (
-                <Badge className="ltr:mr-2 rtl:ml-2 sm:hidden" variant="blue" startIcon="users">
+                <Badge
+                  className="ltr:mr-2 rtl:ml-2 sm:hidden"
+                  variant="blue"
+                  startIcon="users"
+                >
                   {booking.eventType.team.name}
                 </Badge>
               ) : (
-                <Badge className="ltr:mr-2 rtl:ml-2 sm:hidden" variant="gray" startIcon="user">
+                <Badge
+                  className="ltr:mr-2 rtl:ml-2 sm:hidden"
+                  variant="gray"
+                  startIcon="user"
+                >
                   {t("individual")}
                 </Badge>
               )}
@@ -400,8 +462,13 @@ function BookingListItem(booking: BookingItemProps) {
                 </Badge>
               )}
               {isRescheduled && (
-                <Tooltip content={`${t("rescheduled_by")} ${booking.rescheduler}`}>
-                  <Badge variant="orange" className="ltr:mr-2 rtl:ml-2 sm:hidden">
+                <Tooltip
+                  content={`${t("rescheduled_by")} ${booking.rescheduler}`}
+                >
+                  <Badge
+                    variant="orange"
+                    className="ltr:mr-2 rtl:ml-2 sm:hidden"
+                  >
                     {t("rescheduled")}
                   </Badge>
                 </Tooltip>
@@ -423,16 +490,18 @@ function BookingListItem(booking: BookingItemProps) {
               {booking.eventType?.title && (
                 <div
                   className="text-subtle max-w-10/12 truncate text-xs leading-5 sm:hidden"
-                  title={booking.eventType.title}>
+                  title={booking.eventType.title}
+                >
                   {booking.eventType.title}
                 </div>
               )}
               <div
                 title={title}
                 className={classNames(
-                  "max-w-10/12 text-emphasis sm:max-w-56 break-words text-sm font-medium leading-6 md:max-w-full",
+                  "max-w-10/12 text-emphasis sm:max-w-56 wrap-break-word text-sm font-medium leading-6 md:max-w-full",
                   isCancelled ? "line-through" : ""
-                )}>
+                )}
+              >
                 {title}
                 <span> </span>
 
@@ -445,7 +514,8 @@ function BookingListItem(booking: BookingItemProps) {
               {booking.description && (
                 <div
                   className="max-w-10/12 text-default sm:max-w-32 md:max-w-52 xl:max-w-80 truncate text-sm"
-                  title={booking.description}>
+                  title={booking.description}
+                >
                   &quot;{booking.description}&quot;
                 </div>
               )}
@@ -464,7 +534,8 @@ function BookingListItem(booking: BookingItemProps) {
               {!isPending && (
                 <div className="sm:hidden">
                   {(provider?.label ||
-                    (typeof locationToDisplay === "string" && locationToDisplay?.startsWith("https://"))) &&
+                    (typeof locationToDisplay === "string" &&
+                      locationToDisplay?.startsWith("https://"))) &&
                     locationToDisplay.startsWith("http") && (
                       <a
                         href={locationToDisplay}
@@ -472,7 +543,8 @@ function BookingListItem(booking: BookingItemProps) {
                         target="_blank"
                         title={locationToDisplay}
                         rel="noreferrer"
-                        className="text-sm leading-6 text-blue-600 hover:underline dark:text-blue-400">
+                        className="text-sm leading-6 text-blue-600 hover:underline dark:text-blue-400"
+                      >
                         <div className="flex items-center gap-2">
                           {provider?.iconUrl && (
                             <img
@@ -484,7 +556,9 @@ function BookingListItem(booking: BookingItemProps) {
                             />
                           )}
                           {provider?.label
-                            ? t("join_event_location", { eventLocationType: provider?.label })
+                            ? t("join_event_location", {
+                                eventLocationType: provider?.label,
+                              })
                             : t("join_meeting")}
                         </div>
                       </a>
@@ -500,12 +574,16 @@ function BookingListItem(booking: BookingItemProps) {
           </ConditionalLink>
         </div>
         {booking.eventType?.title && (
-          <div data-testid="booking-event-type" className={COLUMN_CLASSNAMES.event}>
+          <div
+            data-testid="booking-event-type"
+            className={COLUMN_CLASSNAMES.event}
+          >
             <ConditionalLink onClick={onClick} bookingLink={bookingLink}>
               <div className="cursor-pointer py-4">
                 <div
                   className="text-subtle max-w-full truncate text-sm leading-6"
-                  title={booking.eventType.title}>
+                  title={booking.eventType.title}
+                >
                   {booking.eventType.title}
                 </div>
               </div>
@@ -517,7 +595,9 @@ function BookingListItem(booking: BookingItemProps) {
             <div className="cursor-pointer py-4">
               {booking.eventType?.team ? (
                 <Badge className="max-w-full" variant="blue" startIcon="users">
-                  <span className="truncate">{booking.eventType.team.name}</span>
+                  <span className="truncate">
+                    {booking.eventType.team.name}
+                  </span>
                 </Badge>
               ) : (
                 <Badge className="max-w-full" variant="gray" startIcon="user">
@@ -527,7 +607,7 @@ function BookingListItem(booking: BookingItemProps) {
             </div>
           </ConditionalLink>
         </div>
-        <div className="flex flex-col flex-wrap items-end justify-end gap-2 py-4 pl-4 text-right text-sm font-medium ltr:pr-4 rtl:pl-4 sm:flex-shrink-0 sm:flex-row sm:flex-nowrap sm:items-start sm:pl-0">
+        <div className="flex flex-col flex-wrap items-end justify-end gap-2 py-4 pl-4 text-right text-sm font-medium ltr:pr-4 rtl:pl-4 sm:shrink-0 sm:flex-row sm:flex-nowrap sm:items-start sm:pl-0">
           {shouldShowPendingActions(actionContext) && (
             <div className="flex space-x-2 rtl:space-x-reverse">
               <RejectBookingButton
@@ -564,7 +644,8 @@ function BookingListItem(booking: BookingItemProps) {
               StartIcon="circle-x"
               disabled={isActionDisabled("cancel", actionContext)}
               data-booking-uid={booking.uid}
-              color="destructive">
+              color="destructive"
+            >
               {t("cancel_all_remaining")}
             </Button>
           )}
@@ -641,15 +722,19 @@ const BookingItemBadges = ({
           </Badge>
         </Tooltip>
       )}
-      {isRejected && !isRescheduled && booking.assignmentReasonSortedByCreatedAt.length === 0 && (
-        <Badge variant="gray" className="ltr:mr-2 rtl:ml-2">
-          {t("rejected")}
-        </Badge>
-      )}
+      {isRejected &&
+        !isRescheduled &&
+        booking.assignmentReasonSortedByCreatedAt.length === 0 && (
+          <Badge variant="gray" className="ltr:mr-2 rtl:ml-2">
+            {t("rejected")}
+          </Badge>
+        )}
       {booking?.assignmentReasonSortedByCreatedAt.length > 0 && (
         <AssignmentReasonTooltip
           assignmentReason={
-            booking.assignmentReasonSortedByCreatedAt[booking.assignmentReasonSortedByCreatedAt.length - 1]
+            booking.assignmentReasonSortedByCreatedAt[
+              booking.assignmentReasonSortedByCreatedAt.length - 1
+            ]
           }
           onClick={onAssignmentReasonClick}
         />
@@ -666,7 +751,8 @@ const BookingItemBadges = ({
                   : reasonText;
               })()}
             </div>
-          }>
+          }
+        >
           <Badge className="ltr:mr-2 rtl:ml-2" variant="red">
             {t("reported")}
           </Badge>
@@ -677,8 +763,14 @@ const BookingItemBadges = ({
           {t("error_collecting_card")}
         </Badge>
       ) : booking.paid ? (
-        <Badge className="ltr:mr-2 rtl:ml-2" variant="green" data-testid="paid_badge">
-          {booking.payment[0].paymentOption === "HOLD" ? t("card_held") : t("paid")}
+        <Badge
+          className="ltr:mr-2 rtl:ml-2"
+          variant="green"
+          data-testid="paid_badge"
+        >
+          {booking.payment[0].paymentOption === "HOLD"
+            ? t("card_held")
+            : t("paid")}
         </Badge>
       ) : null}
       {recurringDates !== undefined && (
@@ -738,13 +830,17 @@ const RecurringBookingsTooltip = ({
                     .map((date) => date.toString())
                     .includes(aDate.toString());
                 return (
-                  <p key={key} className={classNames(pastOrCancelled && "line-through")}>
+                  <p
+                    key={key}
+                    className={classNames(pastOrCancelled && "line-through")}
+                  >
                     {formatTime(aDate, userTimeFormat, userTimeZone)}
                     {" - "}
                     {dayjs(aDate).locale(language).format("D MMMM YYYY")}
                   </p>
                 );
-              })}>
+              })}
+            >
               <div className="text-default">
                 <Icon
                   name="refresh-ccw"
@@ -798,7 +894,8 @@ const FirstAttendee = ({
       key={user.email}
       className="hover:text-blue-500"
       href={`mailto:${user.email}`}
-      onClick={(e) => e.stopPropagation()}>
+      onClick={(e) => e.stopPropagation()}
+    >
       {user.name || user.email}
     </a>
   );
@@ -835,20 +932,22 @@ const Attendee = (
   const [openDropdown, setOpenDropdown] = useState(false);
   const { copyToClipboard, isCopied } = useCopy();
 
-  const noShowMutation = trpc.viewer.loggedInViewerRouter.markNoShow.useMutation({
-    onSuccess: async (data) => {
-      showToast(data.message, "success");
-      await utils.viewer.bookings.invalidate();
-    },
-    onError: (err) => {
-      showToast(err.message, "error");
-    },
-  });
+  const noShowMutation =
+    trpc.viewer.loggedInViewerRouter.markNoShow.useMutation({
+      onSuccess: async (data) => {
+        showToast(data.message, "success");
+        await utils.viewer.bookings.invalidate();
+      },
+      onError: (err) => {
+        showToast(err.message, "error");
+      },
+    });
 
   const displayName = user?.name || name || user?.email || email;
 
   const isTeamMemberOrHost =
-    email === organizerEmail || eventTypeHosts?.some((host) => host.user?.email === email);
+    email === organizerEmail ||
+    eventTypeHosts?.some((host) => host.user?.email === email);
   const shouldHideEmail = hideOrganizerEmail && isTeamMemberOrHost;
 
   return (
@@ -857,7 +956,8 @@ const Attendee = (
         <button
           data-testid="guest"
           onClick={(e) => e.stopPropagation()}
-          className="radix-state-open:text-blue-500 transition hover:text-blue-500">
+          className="radix-state-open:text-blue-500 transition hover:text-blue-500"
+        >
           {noShow ? (
             <>
               {displayName} <Icon name="eye-off" className="inline h-4" />
@@ -877,7 +977,8 @@ const Attendee = (
                 onClick={(e) => {
                   setOpenDropdown(false);
                   e.stopPropagation();
-                }}>
+                }}
+              >
                 <a href={`mailto:${email}`}>{t("email")}</a>
               </DropdownItem>
             </DropdownMenuItem>
@@ -889,10 +990,14 @@ const Attendee = (
               onClick={(e) => {
                 e.preventDefault();
                 const isEmailCopied = isSmsCalEmail(email);
-                copyToClipboard(isEmailCopied ? email : (phoneNumber ?? ""));
+                copyToClipboard(isEmailCopied ? email : phoneNumber ?? "");
                 setOpenDropdown(false);
-                showToast(isEmailCopied ? t("email_copied") : t("phone_number_copied"), "success");
-              }}>
+                showToast(
+                  isEmailCopied ? t("email_copied") : t("phone_number_copied"),
+                  "success"
+                );
+              }}
+            >
               {!isCopied ? t("copy") : t("copied")}
             </DropdownItem>
           </DropdownMenuItem>
@@ -904,9 +1009,13 @@ const Attendee = (
                 onClick={(e) => {
                   e.preventDefault();
                   setOpenDropdown(false);
-                  noShowMutation.mutate({ bookingUid, attendees: [{ noShow: !noShow, email }] });
+                  noShowMutation.mutate({
+                    bookingUid,
+                    attendees: [{ noShow: !noShow, email }],
+                  });
                 }}
-                StartIcon={noShow ? "eye" : "eye-off"}>
+                StartIcon={noShow ? "eye" : "eye-off"}
+              >
                 {noShow ? t("unmark_as_no_show") : t("mark_as_no_show")}
               </DropdownItem>
             </DropdownMenuItem>
@@ -926,15 +1035,16 @@ const GroupedAttendees = (groupedAttendeeProps: GroupedAttendeeProps) => {
   const { bookingUid, attendees } = groupedAttendeeProps;
   const { t } = useLocale();
   const utils = trpc.useUtils();
-  const noShowMutation = trpc.viewer.loggedInViewerRouter.markNoShow.useMutation({
-    onSuccess: async (data) => {
-      showToast(t(data.message), "success");
-      await utils.viewer.bookings.invalidate();
-    },
-    onError: (err) => {
-      showToast(err.message, "error");
-    },
-  });
+  const noShowMutation =
+    trpc.viewer.loggedInViewerRouter.markNoShow.useMutation({
+      onSuccess: async (data) => {
+        showToast(t(data.message), "success");
+        await utils.viewer.bookings.invalidate();
+      },
+      onError: (err) => {
+        showToast(err.message, "error");
+      },
+    });
 
   type FormValues = {
     attendees: Array<{ id: number; email: string; noShow: boolean }>;
@@ -942,7 +1052,11 @@ const GroupedAttendees = (groupedAttendeeProps: GroupedAttendeeProps) => {
 
   const { control, handleSubmit } = useForm<FormValues>({
     defaultValues: {
-      attendees: attendees.map((a) => ({ id: a.id, email: a.email, noShow: a.noShow || false })),
+      attendees: attendees.map((a) => ({
+        id: a.id,
+        email: a.email,
+        noShow: a.noShow || false,
+      })),
     },
     mode: "onBlur",
   });
@@ -969,7 +1083,8 @@ const GroupedAttendees = (groupedAttendeeProps: GroupedAttendeeProps) => {
         <button
           data-testid="more-guests"
           onClick={(e) => e.stopPropagation()}
-          className="radix-state-open:text-blue-500 transition hover:text-blue-500 focus:outline-none">
+          className="radix-state-open:text-blue-500 transition hover:text-blue-500 focus:outline-none"
+        >
           {t("plus_more", { count: attendees.length - 1 })}
         </button>
       </DropdownMenuTrigger>
@@ -981,7 +1096,10 @@ const GroupedAttendees = (groupedAttendeeProps: GroupedAttendeeProps) => {
           {fields.slice(1).map((field, index) => {
             const attendee = attendees[index + 1];
             const displayName =
-              attendee.user?.name || attendee.name || attendee.user?.email || attendee.email;
+              attendee.user?.name ||
+              attendee.name ||
+              attendee.user?.email ||
+              attendee.email;
             const hasName = attendee.name || attendee.user?.name;
 
             return (
@@ -997,12 +1115,15 @@ const GroupedAttendees = (groupedAttendeeProps: GroupedAttendeeProps) => {
                     onClick={(e) => {
                       e.preventDefault();
                       onChange(!value);
-                    }}>
+                    }}
+                  >
                     <div className={`w-full ${value ? "line-through" : ""}`}>
                       {hasName ? (
                         <>
                           <div>{displayName}</div>
-                          <div className="text-subtle text-xs">{field.email}</div>
+                          <div className="text-subtle text-xs">
+                            {field.email}
+                          </div>
                         </>
                       ) : (
                         <div>{field.email}</div>
@@ -1021,7 +1142,8 @@ const GroupedAttendees = (groupedAttendeeProps: GroupedAttendeeProps) => {
               onClick={(e) => {
                 e.preventDefault();
                 handleSubmit(onSubmit)();
-              }}>
+              }}
+            >
               {t("mark_as_no_show_title")}
             </Button>
           </div>
@@ -1043,30 +1165,40 @@ const GroupedGuests = ({ guests }: { guests: BookingAttendee[] }) => {
       onOpenChange={(value) => {
         setOpenDropdown(value);
         setSelectedEmail("");
-      }}>
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <button
           onClick={(e) => e.stopPropagation()}
-          className="radix-state-open:text-blue-500 transition hover:text-blue-500 focus:outline-none">
+          className="radix-state-open:text-blue-500 transition hover:text-blue-500 focus:outline-none"
+        >
           {t("plus_more", { count: guests.length - 1 })}
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="min-w-[300px]">
-        <DropdownMenuLabel className="text-xs font-medium uppercase">{t("guests")}</DropdownMenuLabel>
+        <DropdownMenuLabel className="text-xs font-medium uppercase">
+          {t("guests")}
+        </DropdownMenuLabel>
         {guests.slice(1).map((guest) => {
-          const displayName = guest.user?.name || guest.name || guest.user?.email || guest.email;
+          const displayName =
+            guest.user?.name || guest.name || guest.user?.email || guest.email;
           const hasName = guest.name || guest.user?.name;
 
           return (
             <DropdownMenuItem key={guest.id}>
               <DropdownItem
                 className="pr-6 focus:outline-none"
-                StartIcon={selectedEmail === guest.email ? "circle-check" : undefined}
+                StartIcon={
+                  selectedEmail === guest.email ? "circle-check" : undefined
+                }
                 onClick={(e) => {
                   e.preventDefault();
                   setSelectedEmail(guest.email);
-                }}>
-                <div className={`${selectedEmail !== guest.email ? "pl-6" : ""}`}>
+                }}
+              >
+                <div
+                  className={`${selectedEmail !== guest.email ? "pl-6" : ""}`}
+                >
                   {hasName ? (
                     <>
                       <div>{displayName}</div>
@@ -1089,7 +1221,8 @@ const GroupedGuests = ({ guests }: { guests: BookingAttendee[] }) => {
               onClick={(e) => {
                 setOpenDropdown(false);
                 e.stopPropagation();
-              }}>
+              }}
+            >
               {t("email")}
             </Button>
           </Link>
@@ -1100,7 +1233,8 @@ const GroupedGuests = ({ guests }: { guests: BookingAttendee[] }) => {
               e.preventDefault();
               copyToClipboard(selectedEmail);
               showToast(t("email_copied"), "success");
-            }}>
+            }}
+          >
             {!isCopied ? t("copy") : t("copied")}
           </Button>
         </div>
@@ -1134,9 +1268,17 @@ const DisplayAttendees = ({
   return (
     <div className="text-emphasis text-sm" onClick={(e) => e.stopPropagation()}>
       {user && (
-        <FirstAttendee user={user} currentEmail={currentEmail} hideOrganizerEmail={hideOrganizerEmail} />
+        <FirstAttendee
+          user={user}
+          currentEmail={currentEmail}
+          hideOrganizerEmail={hideOrganizerEmail}
+        />
       )}
-      {attendees.length > 1 ? <span>,&nbsp;</span> : <span>&nbsp;{t("and")}&nbsp;</span>}
+      {attendees.length > 1 ? (
+        <span>,&nbsp;</span>
+      ) : (
+        <span>&nbsp;{t("and")}&nbsp;</span>
+      )}
       <Attendee
         {...attendees[0]}
         bookingUid={bookingUid}
@@ -1147,7 +1289,9 @@ const DisplayAttendees = ({
       />
       {attendees.length > 1 && (
         <>
-          <div className="text-emphasis inline-block text-sm">&nbsp;{t("and")}&nbsp;</div>
+          <div className="text-emphasis inline-block text-sm">
+            &nbsp;{t("and")}&nbsp;
+          </div>
           {attendees.length > 2 ? (
             <Tooltip
               content={attendees.slice(1).map((attendee) => (
@@ -1161,9 +1305,13 @@ const DisplayAttendees = ({
                     eventTypeHosts={eventTypeHosts}
                   />
                 </p>
-              ))}>
+              ))}
+            >
               {isBookingInPast ? (
-                <GroupedAttendees attendees={attendees} bookingUid={bookingUid} />
+                <GroupedAttendees
+                  attendees={attendees}
+                  bookingUid={bookingUid}
+                />
               ) : (
                 <GroupedGuests guests={attendees} />
               )}
@@ -1196,9 +1344,13 @@ const AssignmentReasonTooltip = ({
   return (
     <Tooltip content={<p>{assignmentReason.reasonString}</p>}>
       <Badge
-        className={classNames("ltr:mr-2 rtl:ml-2", onClick && "cursor-pointer hover:opacity-80")}
+        className={classNames(
+          "ltr:mr-2 rtl:ml-2",
+          onClick && "cursor-pointer hover:opacity-80"
+        )}
         variant="gray"
-        onClick={onClick}>
+        onClick={onClick}
+      >
         {t(badgeTitle)}
       </Badge>
     </Tooltip>

@@ -26,7 +26,7 @@ import {
 } from "kbar";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import type { ReactNode } from "react";
+import type { JSX, ReactNode } from "react";
 import { useEffect, useMemo } from "react";
 
 type ShortcutArrayType = {

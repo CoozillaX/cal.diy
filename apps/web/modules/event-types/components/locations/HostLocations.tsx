@@ -27,6 +27,7 @@ import { Badge } from "@calcom/ui/components/badge";
 import { Button } from "@calcom/ui/components/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader } from "@calcom/ui/components/dialog";
 import { Label, TextField, Select, SettingsToggle } from "@calcom/ui/components/form";
+import { asSelectComponent } from "@calcom/ui/components/form/select/asSelectComponent";
 import { LoaderIcon, TriangleAlertIcon } from "@coss/ui/icons";
 import { Skeleton } from "@calcom/ui/components/skeleton";
 import { showToast } from "@calcom/ui/components/toast";
@@ -511,16 +512,22 @@ const MassApplyLocationDialog = ({ isOpen, onClose, onApply, isApplying }: MassA
               options={selectOptions}
               className="w-full"
               components={{
-                Option: (props) => (
-                  <components.Option {...props}>
-                    <OptionWithIcon icon={props.data.icon} label={props.data.label} />
-                  </components.Option>
-                ),
-                SingleValue: (props) => (
-                  <components.SingleValue {...props}>
-                    <OptionWithIcon icon={props.data.icon} label={props.data.label} />
-                  </components.SingleValue>
-                ),
+                Option: (props) => {
+                  const OptionTag = asSelectComponent<typeof props>(components.Option);
+                  return (
+                    <OptionTag {...props}>
+                      <OptionWithIcon icon={props.data.icon} label={props.data.label} />
+                    </OptionTag>
+                  );
+                },
+                SingleValue: (props) => {
+                  const SingleValueTag = asSelectComponent<typeof props>(components.SingleValue);
+                  return (
+                    <SingleValueTag {...props}>
+                      <OptionWithIcon icon={props.data.icon} label={props.data.label} />
+                    </SingleValueTag>
+                  );
+                },
               }}
             />
           </div>
@@ -582,7 +589,7 @@ const LocationInputField = ({ eventLocationType, inputValue, setInputValue }: Lo
 };
 
 const useFetchMoreOnScroll = (
-  containerRef: React.RefObject<HTMLDivElement>,
+  containerRef: React.RefObject<HTMLDivElement | null>,
   hasNextPage: boolean | undefined,
   isFetchingNextPage: boolean,
   fetchNextPage: () => void
@@ -656,7 +663,7 @@ type HostListProps = {
   locationOptions: TLocationOptions;
   eventTypeId: number;
   onLocationChange: (userId: number, location: HostLocation | null) => void;
-  containerRef: React.RefObject<HTMLDivElement>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
   isLoading: boolean;
   isFetchingNextPage: boolean;
   onOpenMassApply: () => void;

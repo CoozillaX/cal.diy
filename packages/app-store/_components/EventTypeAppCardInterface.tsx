@@ -1,12 +1,11 @@
-import type z from "zod";
-
+import { EventTypeAddonMap } from "@calcom/app-store/apps.browser.generated";
 import type { GetAppData, SetAppData } from "@calcom/app-store/EventTypeAppContext";
 import EventTypeAppContext from "@calcom/app-store/EventTypeAppContext";
-import { EventTypeAddonMap } from "@calcom/app-store/apps.browser.generated";
 import type { EventTypeMetaDataSchema } from "@calcom/prisma/zod-utils";
 import { ErrorBoundary } from "@calcom/ui/components/errorBoundary";
-
-import type { EventTypeAppCardComponentProps, AppCardApp } from "../types";
+import type { JSX } from "react";
+import type z from "zod";
+import type { AppCardApp, EventTypeAppCardComponentProps } from "../types";
 import { DynamicComponent } from "./DynamicComponent";
 
 export type EventTypeForAppCard = EventTypeAppCardComponentProps["eventType"];

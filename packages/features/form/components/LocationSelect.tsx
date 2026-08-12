@@ -5,6 +5,7 @@ import type { EventLocationType } from "@calcom/app-store/locations";
 import { useIsPlatform } from "@calcom/atoms/hooks/useIsPlatform";
 import invertLogoOnDark from "@calcom/lib/invertLogoOnDark";
 import { Select } from "@calcom/ui/components/form";
+import { asSelectComponent } from "@calcom/ui/components/form/select/asSelectComponent";
 import classNames from "@calcom/ui/classNames";
 import { LinkIcon, MapIcon, MapPinIcon, PhoneIcon, VideoIcon } from "@coss/ui/icons";
 
@@ -101,8 +102,9 @@ export default function LocationSelect({
       }}
       components={{
         Option: (props) => {
+          const OptionTag = asSelectComponent<typeof props>(components.Option);
           return (
-            <components.Option {...props}>
+            <OptionTag {...props}>
               <div data-testid={`location-select-item-${props.data.value}`}>
                 <OptionWithIcon
                   icon={props.data.icon}
@@ -111,12 +113,13 @@ export default function LocationSelect({
                   customClassNames={customClassNames}
                 />
               </div>
-            </components.Option>
+            </OptionTag>
           );
         },
         SingleValue: (props) => {
+          const SingleValueTag = asSelectComponent<typeof props>(components.SingleValue);
           return (
-            <components.SingleValue {...props}>
+            <SingleValueTag {...props}>
               <div data-testid={`location-select-item-${props.data.value}`}>
                 <OptionWithIcon
                   icon={props.data.icon}
@@ -125,7 +128,7 @@ export default function LocationSelect({
                   customClassNames={customClassNames}
                 />
               </div>
-            </components.SingleValue>
+            </SingleValueTag>
           );
         },
       }}

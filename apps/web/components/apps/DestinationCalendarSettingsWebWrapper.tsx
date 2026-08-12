@@ -6,6 +6,7 @@ import {
   reminderSchema,
 } from "@calcom/trpc/server/routers/viewer/calendars/setDestinationReminder.schema";
 import { showToast } from "@calcom/ui/components/toast";
+import type { JSX } from "react";
 import { DestinationCalendarSettings } from "../../../../packages/platform/atoms/destination-calendar/DestinationCalendar";
 import { AtomsWrapper } from "../../../../packages/platform/atoms/src/components/atoms-wrapper";
 export const DestinationCalendarSettingsWebWrapper = ({

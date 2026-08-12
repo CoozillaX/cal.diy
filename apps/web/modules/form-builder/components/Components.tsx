@@ -1,25 +1,24 @@
-import { useEffect } from "react";
-import type { z } from "zod";
-
+import { propsTypes } from "@calcom/features/form-builder/propsTypes";
+import { preprocessNameFieldDataWithVariant } from "@calcom/features/form-builder/utils";
 import type {
   SelectLikeComponentProps,
   TextLikeComponentProps,
 } from "@calcom/features/form-builder/widget-types";
 import Widgets from "@calcom/features/form-builder/widgets";
-import PhoneInput from "@calcom/web/components/phone-input";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import type { fieldSchema, variantsConfigSchema, FieldType } from "@calcom/prisma/zod-utils";
+import type { FieldType, fieldSchema, variantsConfigSchema } from "@calcom/prisma/zod-utils";
 import { AddressInput } from "@calcom/ui/components/address";
 import { InfoBadge } from "@calcom/ui/components/badge";
 import { Button } from "@calcom/ui/components/button";
-import { Label, CheckboxField, EmailField, InputField, Checkbox } from "@calcom/ui/components/form";
-import { RadioGroup, RadioField } from "@calcom/ui/components/radio";
+import { Checkbox, CheckboxField, EmailField, InputField, Label } from "@calcom/ui/components/form";
+import { RadioField, RadioGroup } from "@calcom/ui/components/radio";
 import { Tooltip } from "@calcom/ui/components/tooltip";
+import PhoneInput from "@calcom/web/components/phone-input";
 import { XIcon } from "@coss/ui/icons";
-
+import type { JSX } from "react";
+import { useEffect } from "react";
+import type { z } from "zod";
 import { ComponentForField } from "./FormBuilderField";
-import { propsTypes } from "@calcom/features/form-builder/propsTypes";
-import { preprocessNameFieldDataWithVariant } from "@calcom/features/form-builder/utils";
 
 export const isValidValueProp: Record<Component["propsType"], (val: unknown) => boolean> = {
   boolean: (val) => typeof val === "boolean",

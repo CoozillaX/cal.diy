@@ -1,9 +1,8 @@
-import Link from "next/link";
-import { createElement } from "react";
-
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import classNames from "@calcom/ui/classNames";
-
+import Link from "next/link";
+import type { JSX } from "react";
+import { createElement } from "react";
 import { Badge } from "../badge";
 
 export type ListProps = {
@@ -56,13 +55,7 @@ export function ListItem(props: ListItemProps) {
     props.children
   );
 
-  return href ? (
-    <Link href={href}>
-      {element}
-    </Link>
-  ) : (
-    element
-  );
+  return href ? <Link href={href}>{element}</Link> : element;
 }
 
 export type ListLinkItemProps = {

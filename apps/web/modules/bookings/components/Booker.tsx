@@ -33,6 +33,7 @@ import TurnstileCaptcha from "@calcom/web/modules/auth/components/Turnstile";
 import { useSkipConfirmStep } from "@calcom/web/modules/bookings/hooks/useSkipConfirmStep";
 import { useNonEmptyScheduleDays } from "@calcom/web/modules/schedules/hooks/useNonEmptyScheduleDays";
 import { AnimatePresence, LazyMotion, m } from "framer-motion";
+import type { JSX } from "react";
 import { useEffect, useMemo, useRef } from "react";
 import StickyBox from "react-sticky-box";
 import { Toaster } from "sonner";

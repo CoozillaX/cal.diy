@@ -11,6 +11,7 @@ import { ListItem, ListItemText, ListItemTitle } from "@calcom/ui/components/lis
 import { SkeletonContainer, SkeletonText } from "@calcom/ui/components/skeleton";
 import Image from "next/image";
 import Link from "next/link";
+import type { JSX } from "react";
 import { Fragment } from "react";
 
 type IOverlayCalendarSettingsModalProps = {

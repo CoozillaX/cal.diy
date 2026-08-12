@@ -17,6 +17,7 @@ import { SelectedCalendarsSettingsWebWrapper } from "@calcom/web/modules/calenda
 import SubHeadingTitleWithConnections from "@components/integrations/SubHeadingTitleWithConnections";
 import useRouterQuery from "@lib/hooks/useRouterQuery";
 import { QueryCell } from "@lib/QueryCell";
+import type { JSX } from "react";
 import { Suspense, useEffect } from "react";
 import { DestinationCalendarSettingsWebWrapper } from "./DestinationCalendarSettingsWebWrapper";
 

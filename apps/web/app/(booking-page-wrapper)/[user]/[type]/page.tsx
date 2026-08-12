@@ -1,5 +1,5 @@
-import { WEBAPP_URL } from "@calcom/lib/constants";
 import { loadTranslations } from "@calcom/i18n/server";
+import { WEBAPP_URL } from "@calcom/lib/constants";
 import { buildLegacyCtx, decodeParams } from "@lib/buildLegacyCtx";
 import { getServerSideProps } from "@server/lib/[user]/[type]/getServerSideProps";
 import type { PageProps } from "app/_types";
@@ -9,6 +9,7 @@ import { withAppDirSsr } from "app/WithAppDirSsr";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import type React from "react";
+import type { JSX } from "react";
 import type { PageProps as LegacyPageProps } from "~/users/views/users-type-public-view";
 import LegacyPage from "~/users/views/users-type-public-view";
 

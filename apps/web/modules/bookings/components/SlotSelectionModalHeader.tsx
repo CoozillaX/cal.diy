@@ -11,7 +11,7 @@ import { CURRENT_TIMEZONE } from "@calcom/lib/timezoneConstants";
 import { Button } from "@calcom/ui/components/button";
 import { GlobeIcon } from "@coss/ui/icons";
 import dynamic from "next/dynamic";
-import type { ComponentType } from "react";
+import type { ComponentType, JSX } from "react";
 import { useMemo } from "react";
 import { shallow } from "zustand/shallow";
 import { EventDetails } from "./event-meta/Details";

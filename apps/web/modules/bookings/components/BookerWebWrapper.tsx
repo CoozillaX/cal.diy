@@ -19,6 +19,7 @@ import { localStorage } from "@calcom/lib/webstorage";
 import { useEvent, useScheduleForEvent } from "@calcom/web/modules/schedules/hooks/useEvent";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
+import type { JSX } from "react";
 import { useCallback, useEffect, useMemo } from "react";
 import { shallow } from "zustand/shallow";
 import { useBookings } from "../hooks/useBookings";

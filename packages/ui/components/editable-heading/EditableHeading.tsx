@@ -2,6 +2,7 @@
 
 import { PencilIcon } from "@coss/ui/icons";
 import classNames from "classnames";
+import type { JSX } from "react";
 import { useState } from "react";
 import type { ControllerRenderProps } from "react-hook-form";
 

@@ -4,6 +4,7 @@ when building atoms package this will automatically replace the TooltipPrimitive
 ensuring that we don't have issues with atoms.
 */
 import * as TooltipPrimitives from "@radix-ui/react-tooltip-atoms";
+import type { JSX } from "react";
 
 const PortalAsFragment: React.FC<{ children: JSX.Element }> = ({ children }) => <>{children}</>;
 

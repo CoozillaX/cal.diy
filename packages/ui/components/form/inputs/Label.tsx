@@ -1,4 +1,5 @@
 import classNames from "@calcom/ui/classNames";
+import type { JSX } from "react";
 
 export function Label(props: JSX.IntrinsicElements["label"]) {
   const { className, ...restProps } = props;

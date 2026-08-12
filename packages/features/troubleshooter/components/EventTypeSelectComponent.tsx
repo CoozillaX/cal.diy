@@ -2,6 +2,7 @@ import { getQueryParam } from "@calcom/features/bookings/Booker/utils/query-para
 import { useTroubleshooterStore } from "@calcom/features/troubleshooter/store";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import { SelectField } from "@calcom/ui/components/form";
+import type { JSX } from "react";
 import { startTransition, useEffect, useMemo } from "react";
 import { shallow } from "zustand/shallow";
 

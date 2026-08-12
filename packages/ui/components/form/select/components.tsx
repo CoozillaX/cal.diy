@@ -5,6 +5,7 @@ import classNames from "@calcom/ui/classNames";
 
 import { Badge, CreditsBadge } from "../../badge";
 import { CheckIcon } from "@coss/ui/icons";
+import { asSelectComponent } from "./asSelectComponent";
 import type { SelectProps } from "./types";
 
 export const InputComponent = <
@@ -15,8 +16,9 @@ export const InputComponent = <
   inputClassName,
   ...props
 }: InputProps<Option, IsMulti, Group>) => {
+  const Input = asSelectComponent<InputProps<Option, IsMulti, Group>>(reactSelectComponents.Input);
   return (
-    <reactSelectComponents.Input
+    <Input
       // disables our default form focus highlight on the react-select input element
       inputClassName={classNames(
         "focus:ring-0 focus:ring-offset-0 !text-default dark:text-white!",
@@ -43,9 +45,10 @@ export const OptionComponent = <
 >({
   ...props
 }: OptionProps<Option, IsMulti, Group>) => {
+  const OptionTag = asSelectComponent<OptionProps<Option, IsMulti, Group>>(reactSelectComponents.Option);
   return (
     // This gets styled in the select classNames prop now - handles overrides with styles vs className here doesn't
-    <reactSelectComponents.Option {...props}>
+    <OptionTag {...props}>
       <div className="flex items-center justify-between">
         <span className="w-full" data-testid={`select-option-${(props as unknown as ExtendedOption).value}`}>
           {(props.data as unknown as ExtendedOption).isCalAi ? (
@@ -67,7 +70,7 @@ export const OptionComponent = <
         )}
         {props.isSelected && <CheckIcon className="ml-2 h-4 w-4" />}
       </div>
-    </reactSelectComponents.Option>
+    </OptionTag>
   );
 };
 
@@ -81,9 +84,10 @@ export const ControlComponent = <
   }
 ) => {
   const dataTestId = controlProps.selectProps["data-testid"] ?? "select-control";
+  const Control = asSelectComponent<ControlProps<Option, IsMulti, Group>>(reactSelectComponents.Control);
   return (
     <span data-testid={dataTestId}>
-      <reactSelectComponents.Control {...controlProps} />
+      <Control {...controlProps} />
     </span>
   );
 };
@@ -92,13 +96,16 @@ export const ControlComponent = <
 type IconLeadingProps = {
   icon: React.ReactNode;
   children?: React.ReactNode;
-} & React.ComponentProps<typeof reactSelectComponents.Control>;
+} & ControlProps<unknown, boolean, GroupBase<unknown>>;
 
 export const IconLeading = ({ icon, children, ...props }: IconLeadingProps) => {
+  const Control = asSelectComponent<ControlProps<unknown, boolean, GroupBase<unknown>>>(
+    reactSelectComponents.Control
+  );
   return (
-    <reactSelectComponents.Control {...props}>
+    <Control {...props}>
       {icon}
       {children}
-    </reactSelectComponents.Control>
+    </Control>
   );
 };

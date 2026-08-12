@@ -20,6 +20,7 @@ import { Badge } from "@calcom/ui/components/badge";
 import { Button } from "@calcom/ui/components/button";
 import { EmptyScreen } from "@calcom/ui/components/empty-screen";
 import { Label, Select, SettingsToggle } from "@calcom/ui/components/form";
+import { asSelectComponent } from "@calcom/ui/components/form/select/asSelectComponent";
 import { Spinner } from "@calcom/ui/components/icon";
 import { SkeletonText } from "@calcom/ui/components/skeleton";
 import type { TeamMembers } from "@calcom/web/modules/event-types/components/EventType";
@@ -134,11 +135,14 @@ type EventAvailabilityTabProps = EventAvailabilityTabBaserProps &
     customClassNames?: EventAvailabilityTabCustomClassNames;
   };
 
+const OptionTag = asSelectComponent<OptionProps<AvailabilityOption>>(components.Option);
+const SingleValueTag = asSelectComponent<SingleValueProps<AvailabilityOption>>(components.SingleValue);
+
 const Option = ({ ...props }: OptionProps<AvailabilityOption>) => {
   const { label, isDefault, isManaged = false } = props.data;
   const { t } = useLocale();
   return (
-    <components.Option {...props}>
+    <OptionTag {...props}>
       <span>{label}</span>
       {isDefault && (
         <Badge variant="blue" className="ml-2">
@@ -150,7 +154,7 @@ const Option = ({ ...props }: OptionProps<AvailabilityOption>) => {
           {t("managed")}
         </Badge>
       )}
-    </components.Option>
+    </OptionTag>
   );
 };
 
@@ -158,7 +162,7 @@ const SingleValue = ({ ...props }: SingleValueProps<AvailabilityOption>) => {
   const { label, isDefault, isManaged = false } = props.data;
   const { t } = useLocale();
   return (
-    <components.SingleValue {...props}>
+    <SingleValueTag {...props}>
       <span>{label}</span>
       {isDefault && (
         <Badge variant="blue" className="ml-2">
@@ -170,7 +174,7 @@ const SingleValue = ({ ...props }: SingleValueProps<AvailabilityOption>) => {
           {t("managed")}
         </Badge>
       )}
-    </components.SingleValue>
+    </SingleValueTag>
   );
 };
 

@@ -4,8 +4,10 @@ import type { App } from "@calcom/types/App";
 import type { IntegrationCalendar } from "@calcom/types/Calendar";
 import { Badge } from "@calcom/ui/components/badge";
 import { Select } from "@calcom/ui/components/form";
+import { asSelectComponent } from "@calcom/ui/components/form/select/asSelectComponent";
 import { CheckIcon } from "@coss/ui/icons";
 import classNames from "classnames";
+import type { JSX } from "react";
 import { useEffect, useState } from "react";
 import type { OptionProps, SingleValueProps } from "react-select";
 import { components } from "react-select";
@@ -71,24 +73,27 @@ interface Option {
   subtitle: string;
 }
 
+const SingleValueTag = asSelectComponent<SingleValueProps<Option>>(components.SingleValue);
+const OptionTag = asSelectComponent<OptionProps<Option>>(components.Option);
+
 export const SingleValueComponent = ({ ...props }: SingleValueProps<Option>) => {
   const { label, subtitle } = props.data;
   return (
-    <components.SingleValue {...props} className="flex space-x-1">
+    <SingleValueTag {...props} className="flex space-x-1">
       <p>{label}</p> <p className=" text-subtle">{subtitle}</p>
-    </components.SingleValue>
+    </SingleValueTag>
   );
 };
 
 export const OptionComponent = ({ ...props }: OptionProps<Option>) => {
   const { label } = props.data;
   return (
-    <components.Option {...props}>
+    <OptionTag {...props}>
       <div className="flex">
         <span className="mr-auto">{label}</span>
         {props.isSelected && <CheckIcon className="ml-2 h-4 w-4" />}
       </div>
-    </components.Option>
+    </OptionTag>
   );
 };
 

@@ -1,3 +1,4 @@
+import process from "node:process";
 import type {
   DefaultEventLocationType,
   EventLocationTypeFromApp,
@@ -10,6 +11,7 @@ import invertLogoOnDark from "@calcom/lib/invertLogoOnDark";
 import classNames from "@calcom/ui/classNames";
 import { Tooltip } from "@calcom/ui/components/tooltip";
 import { LinkIcon, MapPinIcon } from "@coss/ui/icons";
+import type { JSX } from "react";
 
 const excludeNullValues = (value: unknown) => !!value;
 

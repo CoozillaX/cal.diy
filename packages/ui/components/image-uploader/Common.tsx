@@ -76,9 +76,10 @@ export const Slider = ({
   </SliderPrimitive.Root>
 );
 
-export interface FileEvent<T = Element> extends FormEvent<T> {
-  target: EventTarget & T;
-}
+// Read `e.currentTarget` (narrowed to `T` by React's SyntheticEvent), not `e.target` - `target`
+// stays a bare `EventTarget` since it can be a bubbled-from descendant, matching the native
+// `onInput` handler signature this type is assigned to.
+export type FileEvent<T = Element> = FormEvent<T>;
 
 export type Area = {
   width: number;
