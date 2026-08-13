@@ -2,14 +2,17 @@ import { SUCCESS_STATUS } from "@calcom/platform-constants";
 import {
   CreateTeamEventTypeInput_2024_06_14,
   GetTeamEventTypesQuery_2024_06_14,
+  UpdateTeamEventTypeInput_2024_06_14,
 } from "@calcom/platform-types";
 import {
   Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -93,6 +96,49 @@ export class TeamsEventTypesController {
       status: SUCCESS_STATUS,
       data: await this.outputTeamEventTypesResponsePipe.transform(eventType),
     };
+  }
+
+  @Patch("/:eventTypeId")
+  @Roles("TEAM_ADMIN")
+  @ApiParam({ name: "eventTypeId", type: Number, required: true })
+  @ApiOperation({ summary: "Update a team event type" })
+  async updateTeamEventType(
+    @Param("teamId", ParseIntPipe) teamId: number,
+    @Param("eventTypeId", ParseIntPipe) eventTypeId: number,
+    @Body() body: UpdateTeamEventTypeInput_2024_06_14,
+    @GetUser() user: UserWithProfile
+  ): Promise<GetEventTypeOutput_2024_06_14> {
+    const transformedBody = await this.inputEventTypesService.transformAndValidateUpdateTeamEventTypeInput(
+      body,
+      user,
+      eventTypeId
+    );
+    const updated = await this.teamsEventTypesService.updateTeamEventType(
+      eventTypeId,
+      teamId,
+      transformedBody,
+      user,
+      false
+    );
+    const eventType = Array.isArray(updated) ? updated[0] : updated;
+
+    return {
+      status: SUCCESS_STATUS,
+      data: await this.outputTeamEventTypesResponsePipe.transform(eventType),
+    };
+  }
+
+  @Delete("/:eventTypeId")
+  @Roles("TEAM_ADMIN")
+  @ApiParam({ name: "eventTypeId", type: Number, required: true })
+  @ApiOperation({ summary: "Delete a team event type" })
+  async deleteTeamEventType(
+    @Param("teamId", ParseIntPipe) teamId: number,
+    @Param("eventTypeId", ParseIntPipe) eventTypeId: number
+  ): Promise<{ status: typeof SUCCESS_STATUS }> {
+    await this.teamsEventTypesService.deleteTeamEventType(teamId, eventTypeId);
+
+    return { status: SUCCESS_STATUS };
   }
 
   private async getTeamEventTypeBySlug(

@@ -14,6 +14,7 @@ import {
   OutputUnknownLocation_2024_06_14,
   supportedIntegrations,
   UpdateEventTypeInput_2024_06_14,
+  UpdateTeamEventTypeInput_2024_06_14,
 } from "@calcom/platform-types";
 import { BookerLayouts } from "@calcom/prisma/zod-utils";
 import { BadRequestException, Injectable } from "@nestjs/common";
@@ -161,6 +162,44 @@ export class InputEventTypesService_2024_06_14 {
     await this.validateInputLocations(user, inputEventType.locations);
 
     const transformedBody = await this.transformInputUpdateEventType(inputEventType, eventTypeId);
+
+    await this.validateEventTypeInputs({
+      eventTypeId: eventTypeId,
+      seatsPerTimeSlot: transformedBody.seatsPerTimeSlot,
+      locations: transformedBody.locations,
+      requiresConfirmation: transformedBody.requiresConfirmation,
+      eventName: transformedBody.eventName,
+    });
+
+    if (transformedBody.destinationCalendar) {
+      await this.validateInputDestinationCalendar(user.id, transformedBody.destinationCalendar);
+    }
+
+    if (transformedBody.useEventTypeDestinationCalendarEmail) {
+      await this.validateInputUseDestinationCalendarEmail(user.id);
+    }
+
+    return transformedBody;
+  }
+
+  // Same rationale as transformAndValidateCreateTeamEventTypeInput above: individual and team update
+  // inputs share every base field (both extend BaseUpdateEventTypeInput), so this reuses the already-
+  // validated transformInputUpdateEventType/validateEventTypeInputs pipeline via a type cast rather than
+  // duplicating it.
+  async transformAndValidateUpdateTeamEventTypeInput(
+    inputEventType: UpdateTeamEventTypeInput_2024_06_14,
+    user: UserWithProfile,
+    eventTypeId: number
+  ) {
+    await this.validateInputLocations(
+      user,
+      inputEventType.locations as CreateEventTypeInput_2024_06_14["locations"]
+    );
+
+    const transformedBody = await this.transformInputUpdateEventType(
+      inputEventType as unknown as UpdateEventTypeInput_2024_06_14,
+      eventTypeId
+    );
 
     await this.validateEventTypeInputs({
       eventTypeId: eventTypeId,

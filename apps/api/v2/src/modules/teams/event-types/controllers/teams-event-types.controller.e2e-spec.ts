@@ -1,5 +1,8 @@
 import { SUCCESS_STATUS } from "@calcom/platform-constants";
-import type { CreateTeamEventTypeInput_2024_06_14 } from "@calcom/platform-types";
+import type {
+  CreateTeamEventTypeInput_2024_06_14,
+  UpdateTeamEventTypeInput_2024_06_14,
+} from "@calcom/platform-types";
 import type { Team } from "@calcom/prisma/client";
 import { INestApplication } from "@nestjs/common";
 import { NestExpressApplication } from "@nestjs/platform-express";
@@ -173,5 +176,45 @@ describe("TeamsEventTypesController (e2e)", () => {
         expect(dbEventType?.schedulingType).toEqual("ROUND_ROBIN");
         expect(dbEventType?.hosts.some((host) => host.userId === user.id)).toBe(true);
       });
+  });
+
+  it("updates a team event type", () => {
+    const newTitle = `Vehicle Delivery (updated ${randomString()})`;
+
+    return request(app.getHttpServer())
+      .patch(`/v2/teams/${team.id}/event-types/${createdEventTypeId}`)
+      .send({ title: newTitle } satisfies Partial<UpdateTeamEventTypeInput_2024_06_14>)
+      .expect(200)
+      .then(async (res) => {
+        expect(res.body.status).toEqual(SUCCESS_STATUS);
+        expect(res.body.data.title).toEqual(newTitle);
+
+        const dbEventTypes = await eventTypesRepositoryFixture.getAllTeamEventTypes(team.id);
+        const dbEventType = dbEventTypes.find((eventType) => eventType.id === createdEventTypeId);
+        expect(dbEventType?.title).toEqual(newTitle);
+      });
+  });
+
+  it("returns 404 updating a team event type that doesn't belong to the team", () => {
+    return request(app.getHttpServer())
+      .patch(`/v2/teams/${team.id}/event-types/999999999`)
+      .send({ title: "should not apply" } satisfies Partial<UpdateTeamEventTypeInput_2024_06_14>)
+      .expect(404);
+  });
+
+  it("deletes a team event type", () => {
+    return request(app.getHttpServer())
+      .delete(`/v2/teams/${team.id}/event-types/${createdEventTypeId}`)
+      .expect(200)
+      .then(async () => {
+        const dbEventTypes = await eventTypesRepositoryFixture.getAllTeamEventTypes(team.id);
+        expect(dbEventTypes.some((eventType) => eventType.id === createdEventTypeId)).toBe(false);
+        // Already deleted via the API - afterAll shouldn't try to delete it again.
+        createdEventTypeId = undefined;
+      });
+  });
+
+  it("returns 404 deleting a team event type that doesn't belong to the team", () => {
+    return request(app.getHttpServer()).delete(`/v2/teams/${team.id}/event-types/999999999`).expect(404);
   });
 });
