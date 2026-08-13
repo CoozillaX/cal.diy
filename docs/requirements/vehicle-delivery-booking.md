@@ -1,7 +1,7 @@
 # 需求分析：车辆交付预约系统（基于 cal.diy）
 
-> 状态：分析阶段，尚未开始开发。本文档汇总讨论过程中的结论，供排期和跟 staff 后台对齐使用。
-> 最后更新：2026-08-13（更正：§4.2 预填字段动态锁定其实已有功能，不需要开发）
+> 状态：分析阶段，§10 已开发完成（本地验证，未推送/未开 PR，自用），其余待开发项见 §6。本文档汇总讨论过程中的结论，供排期和跟 staff 后台对齐使用。
+> 最后更新：2026-08-13（§10 团队事件类型查询接口已实现并本地端到端验证，见 [开发方案文档](./vehicle-delivery-booking-api-dev-plan.md)）
 
 ## 1. 背景
 
@@ -22,7 +22,7 @@
 | 7 | 权限：销售不能随意取消预约 | 本次会话已完成的 `TEAM_PERMISSIONS.BOOKING_CANCEL`，默认最低角色 ADMIN，销售（member）默认不能取消 | **已完成** |
 | 8 | 车辆生命周期到"可交付"时，staff 后台请求预约系统向客户发一条只能约一次的邀请 | 用 Cal.com 现有的 Private Link（`HashedLink`，`maxUsageCount: 1`）+ 现有 API `POST /v2/event-types/{eventTypeId}/private-links` 实现 | 否，现有 API 已支持（见 §4.3 需要补的查询接口） |
 | 9 | 邀请链接需要根据已有客户信息（如 VIN）预填并锁定字段，不可编辑 | 自定义问题上的 `disableOnPrefill` 开关已实现这个动态锁定行为，网页 UI 和 API v2 都能配置 | 否，纯配置，见 §4.2 |
-| 10 | staff 后台需要动态知道某个用途对应哪个事件类型，不能写死数字 ID | 需要一个按团队 + slug 查询事件类型的公开 API | **是**，见 §4.3 |
+| 10 | staff 后台需要动态知道某个用途对应哪个事件类型，不能写死数字 ID | 需要一个按团队 + slug 查询事件类型的公开 API | **已完成**，见 §4.3 |
 | 11 | 账号与 staff 后台打通 | staff 后台没有标准 SSO 协议（非 SAML/OIDC），需要自建信任桥接 | **是**，见 §5，待 staff 后台确定细节 |
 | 12 | staff 后台用"门店管理账号 key"自动化管理团队：建团队/用现有团队、加减成员、建事件类型、配 webhook | Service/Repository 层大部分已实现，只缺对外 REST controller | **是**，见 §7，规模小于预期 |
 
@@ -113,24 +113,19 @@
 
 **结论**：staff 后台这边只需要在建"VIN"这个自定义问题时把 `disableOnPrefill` 设为 `true`，链接里带 `?vin=车架号` 时客户会看到该字段已预填且锁定；如果链接没带这个参数，字段保持正常可编辑——跟 §4.4 描述的调用链天然兼容，不需要额外开发。
 
-### 4.3 按团队 + slug 查询事件类型（供 staff 后台动态发现）
+### 4.3 按团队 + slug 查询事件类型（供 staff 后台动态发现）—— ✅ 已完成
 
-**现状**：
-- `apps/api/v2/src/modules/teams` 目录下**没有任何 controller**，team 相关的对外 REST API 目前是空的
-- `packages/platform/types/event-types/event-types_2024_06_14/inputs/get-event-types-query.input.ts` 里有一个 `GetTeamEventTypesQuery_2024_06_14`（支持按 `eventSlug` 过滤），但**没有接到任何 controller 上**，是孤立未使用的代码
-- 有一个内部专用的 `GET /event-types/{slug}/public?teamId=` 查询（`apps/api/v2/src/modules/atoms/controllers/atoms.event-types.controller.ts`），但它标记为 `@DocsExcludeController`，是给内嵌组件（Platform Atoms）用的，不适合作为服务间调用的公开 API
-
-**需求**：staff 后台需要动态知道"某个团队 + 某个用途"对应哪个 `eventTypeId`，不希望写死数字 ID（要考虑通用性，方便以后新增面试预约等场景）。
-
-**建议方案**：新增公开 REST 接口：
+**接口**：
 
 ```
 GET /v2/teams/{teamId}/event-types?eventSlug={slug}
 ```
 
-staff 后台只需要记住"团队 ID + 一个语义化的 slug"（如 `vehicle-delivery`，以后面试预约用 `interview`），不用碰数字 ID；新增用途时只需要在 cal.diy 里新建事件类型、定好 slug，staff 后台代码不需要改动。
+staff 后台只需要记住"团队 ID + 一个语义化的 slug"（如 `vehicle-delivery`，以后面试预约用 `interview`），不用碰数字 ID；新增用途时只需要在 cal.diy 里新建事件类型、定好 slug，staff 后台代码不需要改动。不传 `eventSlug` 则返回团队下全部事件类型。
 
-**规模**：小，复用已有的半成品 DTO（`GetTeamEventTypesQuery_2024_06_14`），补 1 个 controller + 1 个 service 方法。
+**实现**：复用了已有但此前孤立未接线的 `GetTeamEventTypesQuery_2024_06_14` DTO 和 `TeamsEventTypesService.getTeamEventTypeBySlug`；新增了 controller、`teams.module.ts`（此前不存在）、一个列表响应 DTO。鉴权用 `ApiAuthGuard` + `RolesGuard`（`@Roles("TEAM_MEMBER")`）。本地起真实 Postgres/Redis 跑了 4 条 e2e 用例（含 `RolesGuard` 拒绝分支）全部通过。详细设计和踩坑记录见 [开发方案文档 §2](./vehicle-delivery-booking-api-dev-plan.md#2-10gettvteamteamideventtypes--已完成)。
+
+**规模**：符合预期的小改动，5 个文件（1 个改动 + 4 个新增，含 e2e 测试）。本次仅本地提交，未推送、未开 PR。
 
 ### 4.4 车辆交付邀请的完整调用链（组合已有能力，非新概念）
 
@@ -157,8 +152,8 @@ staff 后台只需要记住"团队 ID + 一个语义化的 slug"（如 `vehicle-
 ## 6. 优先级建议
 
 1. **P0 - 直接配置，可立即验证**：§3.1 / §3.2 / §3.3（round-robin 优先级 + 按事件类型 Schedule）、§4.2（预填字段动态锁定，`disableOnPrefill` 开关已有，纯配置）
-2. **P1 - 小规模开发，支撑交车邀请闭环**：§4.3（team 事件类型查询接口）、§7（团队自动化管理 API）
-3. **已完成**：§4.1（店长保底：事件类型级独立兜底人 + Unallocated 队列 + 重新分配）—— 分配、显示层、Unallocated 队列、手动/自动重新分配均已接上并端到端验证
+2. **P1 - 小规模开发，支撑交车邀请闭环**：§7（团队自动化管理 API，剩余部分）
+3. **已完成**：§4.1（店长保底：事件类型级独立兜底人 + Unallocated 队列 + 重新分配）；§4.3（team 事件类型查询接口）
 5. **待外部依赖**：§5（账号打通）—— 卡在 staff 后台还没有可对接的协议，需要先跟对方确认
 
 ## 7. staff 后台自动化管理 API（团队 / 成员 / 事件类型 / Webhook）

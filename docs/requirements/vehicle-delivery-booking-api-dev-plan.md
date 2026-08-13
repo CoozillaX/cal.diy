@@ -7,7 +7,8 @@
 ## 0. 结论先行
 
 - `apps/api/v2` 是全仓库唯一产出 OpenAPI 文档的服务（`docs/api-reference/v2/openapi.json`），`apps/api/` 下也只有这一个子应用，没有 v1。§10/§12 只能加在这里，没有第二个选项。
-- §10、§12 目前**都还没有开发**——`apps/api/v2/src/modules/teams/` 和 `.../memberships/` 下只有 Repository/Service，没有任何 `*.controller.ts`，也没有 `teams.module.ts` 把它们接起来。跟 main 分支比对（`git log main..HEAD -- apps/api/v2/src/modules/teams`）也没有相关提交。
+- §10 **已完成开发并本地端到端验证通过**，见 §2；§12 还没有开发，见 §3。
+- 本次开发是自用/内部验证，**没有推送到 GitHub、没有开 PR**，只在本地分支 `feat/team-management-and-availability-fixes` 上提交。
 - 好消息：不少"看起来要写"的东西其实已经是**孤立但现成**的代码（从未被删干净、只是没接上），可以直接复用，见 §2。
 - 建议拆成两个独立 PR，见 §3（§10）和 §4（§12 子集）。
 
@@ -27,7 +28,9 @@
 | 团队级细粒度权限 | `packages/features/teams/services/TeamPermissionSettingService.ts`（`TeamPermissionSetting` 表） | 这是 §8 提到的、目前给 tRPC/网页端用的细粒度权限系统（BOOKING_CANCEL 等 11 项）。**没有任何路径接入 `apps/api/v2`**，引入它需要跨包依赖 `packages/features`，成本远高于直接用上面那套现成的 `RolesGuard`（OWNER/ADMIN/MEMBER 三级）。本方案不使用它，见 §5 的取舍说明 |
 | 半公开的单事件类型查询 | `apps/api/v2/src/modules/atoms/controllers/atoms.event-types.controller.ts` (`GET /event-types/:eventSlug/public`) | 标了 `@DocsExcludeController(true)`，是给内嵌组件用的内部端点，不适合直接复用为 §10 的公开 API，但可以作为 controller 写法的参考 |
 
-## 2. §10：`GET /v2/teams/{teamId}/event-types`
+## 2. §10：`GET /v2/teams/{teamId}/event-types` —— ✅ 已完成
+
+提交：`4898509a67`（本地分支，未推送）。
 
 ### 目标
 
@@ -42,19 +45,33 @@ GET /v2/teams/{teamId}/event-types?eventSlug={slug}&hostsLimit={n}
 - 复用现成的 `GetTeamEventTypesQuery_2024_06_14`（`eventSlug` 可选——不传则返回团队下全部事件类型列表，传了则按 slug 精确查一个）
 - `hostsLimit` 已经支持，staff 后台如果只是要拿 `eventTypeId`，**建议调用时传 `hostsLimit=0`**，避免把 host 列表（含成员基本信息）一起带出来——这属于"按需 select"的范畴，不需要额外开发，是现成参数
 
-### 需要新增的文件
+### 实际新增/修改的文件
 
 | 文件 | 内容 |
 |---|---|
-| `apps/api/v2/src/modules/teams/teams.module.ts`（新建，当前不存在） | 声明 `TeamsRepository` / `TeamsEventTypesRepository` / `TeamsEventTypesService` / `MembershipsRepository`（`RolesGuard` 依赖）为 provider，注册新 controller，`exports` 供其他模块复用（现在好几个模块各自重复声明这几个 provider，见 §1 表，新建这个 module 后可以逐步收敛，但**不在本次范围内**，本次只新增不重构） |
-| `apps/api/v2/src/modules/teams/controllers/teams-event-types.controller.ts`（新建） | `GET /v2/teams/:teamId/event-types`，`@UseGuards(ApiAuthGuard, RolesGuard)` + `@Roles("TEAM_MEMBER")`（最低成员即可读，不需要 ADMIN），逻辑上完全参照 [webhooks.controller.ts](../../apps/api/v2/src/modules/webhooks/controllers/webhooks.controller.ts) 的薄 controller 写法：解析 query → 有 `eventSlug` 调 `teamsEventTypesService.getTeamEventTypeBySlug`，没有则调 `getTeamEventTypes` → 用现成的 `output-team-event-types.service.ts` / `output-team-event-types-response.pipe.ts` 包装返回 |
+| `apps/api/v2/src/modules/teams/teams.module.ts`（新建，此前不存在） | 声明 `TeamsRepository` / `TeamsEventTypesRepository` / `TeamsEventTypesService` / `OutputTeamEventTypesService` / `OutputTeamEventTypesResponsePipe` / `UsersRepository` 为 provider，`imports` 了 `PrismaModule` / `RedisModule` / `MembershipsModule`（`RolesGuard` 依赖）/ `EventTypesModule_2024_06_14` / `UsersModule`，`exports` 供其他模块复用 |
+| `apps/api/v2/src/modules/teams/event-types/controllers/teams-event-types.controller.ts`（新建） | `GET /v2/teams/:teamId/event-types`，`@UseGuards(ApiAuthGuard, RolesGuard)` + `@Roles("TEAM_MEMBER")`，参照 [webhooks.controller.ts](../../apps/api/v2/src/modules/webhooks/controllers/webhooks.controller.ts) 的薄 controller 写法：有 `eventSlug` 调 `getTeamEventTypeBySlug`（未命中抛 404），没有则调 `getTeamEventTypes` |
+| `apps/api/v2/src/modules/teams/event-types/outputs/get-team-event-types.output.ts`（新建） | 列表响应的输出 DTO（`GetTeamEventTypesOutput_2024_06_14`），单条命中直接复用了已有的 `GetEventTypeOutput_2024_06_14`（它本来就支持 `TeamEventTypeOutput_2024_06_14`） |
+| `apps/api/v2/src/modules/teams/event-types/controllers/teams-event-types.controller.e2e-spec.ts`（新建） | 见下方"验证"小节 |
 | `apps/api/v2/src/modules/endpoints.module.ts`（修改） | 加一行 `TeamsModule` import |
 
-### 不需要新增
+### 没有新增（复用现成代码，跟计划一致）
 
-- Service/Repository 层：零新增，`getTeamEventTypeBySlug` / `getTeamEventTypes` 已完整
-- 输出 DTO：复用现成的 `DatabaseTeamEventType` + `OutputTeamEventTypesService`
-- 鉴权：`ApiAuthGuard` + `RolesGuard` 全部现成
+- Service/Repository 层：零新增，`getTeamEventTypeBySlug` / `getTeamEventTypes` 直接复用
+- 鉴权：`ApiAuthGuard` + `RolesGuard` 全部现成，没有改动
+
+### 验证
+
+新增了 `teams-event-types.controller.e2e-spec.ts`，起了完整的 `AppModule`、连本地真实 Postgres（`localhost:5432`）和 Redis（`localhost:6379`，均为宿主机原生进程，不是 docker-compose 里那两个已停止的容器），4 个用例全部通过：
+
+1. 按 `teamId + eventSlug` 精确命中 → 200，`id`/`slug`/`teamId` 都对
+2. 命中不存在的 `eventSlug` → 404
+3. 不传 `eventSlug` → 200，返回团队下全部事件类型列表
+4. 用同一个已认证身份，请求一个**没有加入**的团队 → 403
+
+第 4 个用例顺带验证了 `RolesGuard` 的拒绝分支——这是它在本仓库第一次被真实调用路径执行（此前是 §1 表里提到的"零调用点"孤立代码）。
+
+**踩的坑，记下来供 §4（PR2）复用**：一开始想用两个不同身份（团队成员 + 非成员）分别测通过/拒绝，用的是 `withApiAuth` 对两个不同 email 各起一个 Nest app。结果两个 app 的请求全部被鉴权成"后创建的那个 app 绑定的用户"——`ApiAuthStrategy` 是按固定 passport 策略名（`"api-auth"`）注册的，同一个 Jest 测试文件里创建第二个 app 会把第一个 app 的策略覆盖掉，两个 app 实际共享同一个（最后注册的）mock 身份。换成真实 API Key（`ApiKeysRepositoryFixture.createApiKey` + `Authorization: Bearer cal_test_<key>`）想绕开这个问题，结果发现**这条路径在当前本地环境里对所有测试文件都返回 401**（用仓库里已有的、大概率在 CI 里通过的 `event-types.controller.e2e-spec.ts` 现成用例做基线测试，同样 401）——是本地环境配置问题（推测跟某个 env 变量缺失或 API key 前缀配置有关），不是这次改动引入的。最终方案：**同一个身份 + 两个团队**（只加入其中一个），照样能验证 `RolesGuard` 的"是团队成员"和"不是团队成员"两条分支，绕开了以上两个问题。PR2 涉及更多需要"用不同身份互相验证权限"的端点（比如"非 ADMIN 不能加成员"），到时候要么复用这个"同身份多资源"的思路，要么先查清楚本地真实 API Key 鉴权 401 的根因。
 
 ### 预估规模
 
@@ -130,8 +147,8 @@ GET /v2/teams/{teamId}/event-types?eventSlug={slug}&hostsLimit={n}
 
 ## 4. 建议开发顺序
 
-1. **PR1**（§2）：`GET /v2/teams/{teamId}/event-types` —— 最小、独立、且是 §4.4 交车邀请闭环的前置依赖，优先级最高
-2. **PR2a**：建团队 + 加/减成员 —— staff 后台"建团队或复用已有团队、加减成员"的核心
+1. ✅ **PR1**（§2）：`GET /v2/teams/{teamId}/event-types` —— 已完成，本地验证通过
+2. **PR2a**（下一步）：建团队 + 加/减成员 —— staff 后台"建团队或复用已有团队、加减成员"的核心
 3. **PR2b**：建团队事件类型 —— 跟 PR1 共用同一个 controller 文件，可以紧跟着做
 4. **PR2c**：团队 webhook —— 涉及新 Repository 方法+新 Service，独立验证 URL 校验/查重逻辑
 
