@@ -266,9 +266,12 @@ export function isActionDisabled(actionId: string, context: BookingActionContext
     case "charge_card":
       return context.cardCharged;
     case "reassign":
+      return isBookingInPast || isCancelled || isRejected;
     case "change_location":
     case "add_members":
-      return isBookingInPast || isCancelled || isRejected;
+      // Unallocated bookings have no confirmed host yet - editing details that only matter once
+      // someone is actually running the meeting doesn't help; reassign (or cancel) first.
+      return isBookingInPast || isCancelled || isRejected || booking.status === BookingStatus.AWAITING_HOST;
     default:
       return false;
   }

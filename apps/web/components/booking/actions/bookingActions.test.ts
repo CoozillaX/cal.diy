@@ -711,6 +711,14 @@ describe("Booking Actions", () => {
         expect(isActionDisabled("reassign", context)).toBe(false);
         expect(isActionDisabled("cancel", context)).toBe(false);
       });
+
+      it("should disable change_location and add_members for a booking with no confirmed host yet", () => {
+        const context = createMockContext({
+          booking: { ...createMockContext().booking, status: BookingStatus.AWAITING_HOST },
+        });
+        expect(isActionDisabled("change_location", context)).toBe(true);
+        expect(isActionDisabled("add_members", context)).toBe(true);
+      });
     });
   });
 
