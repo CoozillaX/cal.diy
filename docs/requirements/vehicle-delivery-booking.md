@@ -1,7 +1,7 @@
 # 需求分析：车辆交付预约系统（基于 cal.diy）
 
-> 状态：分析阶段，§10 已开发完成（本地验证，未推送/未开 PR，自用），其余待开发项见 §6。本文档汇总讨论过程中的结论，供排期和跟 staff 后台对齐使用。
-> 最后更新：2026-08-13（§10 团队事件类型查询接口已实现并本地端到端验证，见 [开发方案文档](./vehicle-delivery-booking-api-dev-plan.md)）
+> 状态：分析阶段，§10 和 §12（首批子集）已开发完成（本地验证，未推送/未开 PR，自用），剩余待开发项见 §6。本文档汇总讨论过程中的结论，供排期和跟 staff 后台对齐使用。
+> 最后更新：2026-08-13（§12 团队/成员/团队事件类型/webhook 管理接口首批子集已实现并本地端到端验证，见 [开发方案文档](./vehicle-delivery-booking-api-dev-plan.md)）
 
 ## 1. 背景
 
@@ -152,8 +152,8 @@ staff 后台只需要记住"团队 ID + 一个语义化的 slug"（如 `vehicle-
 ## 6. 优先级建议
 
 1. **P0 - 直接配置，可立即验证**：§3.1 / §3.2 / §3.3（round-robin 优先级 + 按事件类型 Schedule）、§4.2（预填字段动态锁定，`disableOnPrefill` 开关已有，纯配置）
-2. **P1 - 小规模开发，支撑交车邀请闭环**：§7（团队自动化管理 API，剩余部分）
-3. **已完成**：§4.1（店长保底：事件类型级独立兜底人 + Unallocated 队列 + 重新分配）；§4.3（team 事件类型查询接口）
+2. **已完成**：§4.1（店长保底：事件类型级独立兜底人 + Unallocated 队列 + 重新分配）；§4.3（team 事件类型查询接口）；§7（团队自动化管理 API 首批子集：建团队、加/减成员、建团队事件类型、团队 webhook）
+3. **暂缓，等 staff 后台真正提出再做**：§7.2 里标 ❌ 的几项（改/删团队、改成员角色）
 5. **待外部依赖**：§5（账号打通）—— 卡在 staff 后台还没有可对接的协议，需要先跟对方确认
 
 ## 7. staff 后台自动化管理 API（团队 / 成员 / 事件类型 / Webhook）
@@ -176,25 +176,27 @@ staff 后台只需要记住"团队 ID + 一个语义化的 slug"（如 `vehicle-
 | 团队 / 事件类型维度的 webhook | `TeamEventTypeWebhooksService.createTeamEventTypeWebhook(eventTypeId, body)` 完整实现，含 URL 校验、去重、`payloadTemplate` | 无 | 只缺 controller |
 | 用户维度的 webhook | 都有 | `POST/GET/PATCH/DELETE /v2/webhooks` **已经能用** | 已完成，但目前只能挂在调用者本人身上，不能指定 `teamId` |
 
-### 7.2 建议新增的接口
+### 7.2 建议新增的接口 —— 首批子集 ✅ 已实现
+
+除标注"暂缓"的几项外，下面列的接口均已实现并本地端到端验证通过，实现细节、鉴权模型、开发中发现的坑（尤其是"建团队事件类型"这一项）见 [开发方案文档 §3](./vehicle-delivery-booking-api-dev-plan.md#3-12staff-后台团队自动化管理-api首批子集--已完成)。
 
 新增到 `apps/api/v2/src/modules/teams`：
 
 ```
-POST   /v2/teams                                 创建团队（调用方即 owner）
-GET    /v2/teams                                 列出调用方所属/可管理的团队（含已有的销售团队）
-GET    /v2/teams/{teamId}                        团队详情
-PATCH  /v2/teams/{teamId}                        更新团队信息
-DELETE /v2/teams/{teamId}                        删除团队（临时小组用完可清理）
+POST   /v2/teams                                 ✅ 创建团队（调用方即 owner）
+GET    /v2/teams                                 ✅ 列出调用方所属/可管理的团队（含已有的销售团队）
+GET    /v2/teams/{teamId}                        ✅ 团队详情
+PATCH  /v2/teams/{teamId}                        ❌ 暂缓，需求原话没提，见开发方案文档 §3.1
+DELETE /v2/teams/{teamId}                        ❌ 暂缓，删除不可逆，留到真正需要时单独做
 
-POST   /v2/teams/{teamId}/memberships            加成员
-PATCH  /v2/teams/{teamId}/memberships/{userId}   改角色（repository 层还没有，需要新写）
-DELETE /v2/teams/{teamId}/memberships/{userId}   移除成员
+POST   /v2/teams/{teamId}/memberships            ✅ 加成员
+PATCH  /v2/teams/{teamId}/memberships/{userId}   ❌ 暂缓（改角色），需求原话没提
+DELETE /v2/teams/{teamId}/memberships/{userId}   ✅ 移除成员
 
-POST   /v2/teams/{teamId}/event-types            建事件类型（如"车辆交付"），复用现成的 createTeamEventType
-GET    /v2/teams/{teamId}/event-types?eventSlug= 按 slug 查事件类型（见 §4.3）
+POST   /v2/teams/{teamId}/event-types            ✅ 建事件类型（如"车辆交付"）
+GET    /v2/teams/{teamId}/event-types?eventSlug= ✅ 按 slug 查事件类型（见 §4.3，已完成）
 
-POST   /v2/teams/{teamId}/webhooks               团队维度 webhook，复用现成的 createTeamEventTypeWebhook 改造
+POST   /v2/teams/{teamId}/webhooks               ✅ 团队维度 webhook
 ```
 
 ### 7.3 鉴权

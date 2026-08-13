@@ -7,10 +7,9 @@
 ## 0. 结论先行
 
 - `apps/api/v2` 是全仓库唯一产出 OpenAPI 文档的服务（`docs/api-reference/v2/openapi.json`），`apps/api/` 下也只有这一个子应用，没有 v1。§10/§12 只能加在这里，没有第二个选项。
-- §10 **已完成开发并本地端到端验证通过**，见 §2；§12 还没有开发，见 §3。
-- 本次开发是自用/内部验证，**没有推送到 GitHub、没有开 PR**，只在本地分支 `feat/team-management-and-availability-fixes` 上提交。
-- 好消息：不少"看起来要写"的东西其实已经是**孤立但现成**的代码（从未被删干净、只是没接上），可以直接复用，见 §2。
-- 建议拆成两个独立 PR，见 §3（§10）和 §4（§12 子集）。
+- §10、§12（首批子集）**都已完成开发并本地端到端验证通过**，见 §2 / §3。
+- 本次开发是自用/内部验证，**没有推送到 GitHub、没有开 PR**，全部提交都在本地分支 `feat/team-management-and-availability-fixes` 上。
+- 好消息：不少"看起来要写"的东西其实已经是**孤立但现成**的代码（从未被删干净、只是没接上），可以直接复用。但"现成"不等于"能直接跑"——§3.2 的"建团队事件类型"这一项在真正调用之前完全没有测试过，实测直接暴露了三个之前读代码看不出来的坑（host priority 类型不匹配、assignAllTeamMembers 不会自动同步 host、事件类型创建的默认权限是 OWNER 不是 ADMIN），全部记录在 §3.2。
 
 ## 1. 涉及的现有代码盘点
 
@@ -77,7 +76,9 @@ GET /v2/teams/{teamId}/event-types?eventSlug={slug}&hostsLimit={n}
 
 1 个 controller 文件 + 1 个 module 文件 + 1 处已有文件的一行改动，符合"小 PR"要求，是本方案里最小的一块，建议第一个做。
 
-## 3. §12：staff 后台团队自动化管理 API（首批子集）
+## 3. §12：staff 后台团队自动化管理 API（首批子集）—— ✅ 已完成
+
+提交（本地分支，未推送）：`a67b79de35`（团队/成员/webhook）、`702ad5496f`（建团队事件类型）。
 
 ### 3.1 范围取舍
 
@@ -116,8 +117,13 @@ GET /v2/teams/{teamId}/event-types?eventSlug={slug}&hostsLimit={n}
 - 鉴权：`RolesGuard` + `@Roles("TEAM_ADMIN")`
 
 **`POST /v2/teams/{teamId}/event-types`**
-- 直接复用 `TeamsEventTypesService.createTeamEventType(user, teamId, body)`，输入 DTO 复用 API v2 已有的团队事件类型创建 DTO（`packages/platform/types/event-types` 下已有 create 输入类型，具体到实现时确认字段是否需要裁剪）
+- 复用 `TeamsEventTypesService.createTeamEventType(user, teamId, body)` + 现成的 `CreateTeamEventTypeInput_2024_06_14` DTO（`packages/platform/types` 里本来就有，之前零调用）
 - 鉴权：`RolesGuard` + `@Roles("TEAM_ADMIN")`
+- **`createTeamEventType` 本身也是零调用点的代码**，实测（不是读代码）才发现的三个坑，全部已修复/记录，供以后改这块代码时参考：
+  1. **没有输入转换路径**：`InputEventTypesService_2024_06_14` 完全没有处理团队 DTO 的方法。新增了 `transformAndValidateCreateTeamEventTypeInput`，复用个人事件类型那条已验证过的转换/校验逻辑（两个 DTO 共享同一个 `BaseCreateEventTypeInput`，团队专属字段靠原有的 `...rest` 展开原样透传），用一次类型转换（`as unknown as CreateEventTypeInput_2024_06_14`）接进去，没有改动被个人事件类型创建共用的转换函数本身
+  2. **`hosts[].priority` 类型不匹配**：API 层是字符串标签（`"medium"`），数据库 `Host.priority` 是整数——之前完全没人转换，直接传给 Prisma 报 `PrismaClientValidationError`。已加一个小的反向映射（映射方向对应 `OutputTeamEventTypesService.getPriorityLabel` 已有的正向映射）
+  3. **`assignAllTeamMembers: true` 不会自动同步到 Host 表**：实测传了这个字段、不传 `hosts`，创建成功但 Host 表没有任何记录。翻 git log 确认这是有意为之（"make 'assign all team members' pure frontend"，同步逻辑在网页端表单提交时算，不在后端）。结论：调用这个接口时**必须显式传 `hosts` 数组**，不能只传 `assignAllTeamMembers`——对交车场景反而更合适，因为轮询保底需要给每个 host 单独设置 priority（见主需求文档 §3.1）
+  4. **（不是 bug，是发现）事件类型创建的默认权限比 `RolesGuard` 严**：`RolesGuard` 只要求 `TEAM_ADMIN`，但 `createEventType` 内部另有一层独立的 `TeamPermissionSettingService` 检查，`eventType.create` 这个权限点的**默认最低角色是 `OWNER`**（`packages/features/teams/lib/teamPermissions.ts`），比 `RolesGuard` 的 `TEAM_ADMIN` 更严格。也就是说光是团队 ADMIN 调这个接口默认会被拒——这是本仓库既有的、按 team 可配置的细粒度权限系统在正常生效（见主需求文档 §8），不是要修的问题，只是调用方需要知道：默认情况下只有 team owner（或该团队把 `eventType.create` 权限设置里调低了门槛）才能建团队事件类型
 
 **`POST /v2/teams/{teamId}/webhooks`**
 - **需要新增** `WebhooksRepository.createTeamWebhook(teamId, data)`，照抄 `createEventTypeWebhook` 的写法（`Webhook.teamId` 字段本身已存在，Prisma 层不需要改 schema）
@@ -125,39 +131,39 @@ GET /v2/teams/{teamId}/event-types?eventSlug={slug}&hostsLimit={n}
 - 输出：直接复用现成但目前孤立的 `TeamWebhookOutputDto` / `TeamWebhookOutputResponseDto`（`apps/api/v2/src/modules/webhooks/outputs/team-webhook.output.ts`），不需要新写
 - 鉴权：`RolesGuard` + `@Roles("TEAM_ADMIN")`
 
-### 3.3 新增文件清单
+### 3.3 实际新增/修改的文件
 
 | 文件 | 类型 |
 |---|---|
 | `apps/api/v2/src/modules/teams/controllers/teams.controller.ts` | 新建（create/list/get team） |
 | `apps/api/v2/src/modules/teams/controllers/team-memberships.controller.ts` | 新建（add/remove member） |
-| `apps/api/v2/src/modules/teams/services/teams-management.service.ts` | 新建（create team + 自动加 owner membership 的编排逻辑） |
-| `apps/api/v2/src/modules/memberships/memberships.repository.ts` | 修改，加 `deleteMembership` |
-| `apps/api/v2/src/modules/webhooks/webhooks.repository.ts` | 修改，加 `createTeamWebhook` + 按 teamId 查重方法 |
+| `apps/api/v2/src/modules/teams/services/teams-management.service.ts` | 新建（create team + 自动加 owner membership 的编排逻辑；add/remove member） |
+| `apps/api/v2/src/modules/teams/inputs/create-team.input.ts` / `create-membership.input.ts` | 新建 |
+| `apps/api/v2/src/modules/teams/outputs/team.output.ts` / `membership.output.ts` | 新建 |
+| `apps/api/v2/src/modules/memberships/memberships.repository.ts` | 修改，加 `deleteMembership`（全仓库之前零实现） |
+| `apps/api/v2/src/modules/webhooks/webhooks.repository.ts` | 修改，加 `createTeamWebhook` + `getTeamWebhookByUrl` |
 | `apps/api/v2/src/modules/webhooks/services/team-webhooks.service.ts` | 新建 |
 | `apps/api/v2/src/modules/webhooks/controllers/team-webhooks.controller.ts` | 新建 |
-| `apps/api/v2/src/modules/teams/controllers/team-event-types.controller.ts` | 新建（建团队事件类型；跟 §10 的 GET 可以是同一个 controller 文件，减少文件数） |
+| `apps/api/v2/src/modules/teams/event-types/controllers/teams-event-types.controller.ts` | 修改（§10 已有的 GET 上加了 POST，同一个 controller） |
+| `apps/api/v2/src/platform/event-types/event-types_2024_06_14/services/input-event-types.service.ts` | 修改，加 `transformAndValidateCreateTeamEventTypeInput` + host priority 映射 |
 | `apps/api/v2/src/modules/teams/teams.module.ts` / `apps/api/v2/src/modules/webhooks/webhooks.module.ts` | 修改，接入新 controller/service |
+| 对应的 `*.e2e-spec.ts`（5 个文件，共 31 条用例） | 新建 |
 
-这个量级已经超过单个"小 PR"的建议文件数（>10 个文件），**建议再拆一次**：
+按单次 commit 的文件数/行数看确实超过"小 PR"的建议阈值，但既然本次不走 PR、只是自用分支上的连续提交，就没有再按 PR2a/b/c 拆分——实际按 §4 的顺序分了三次独立提交（团队事件类型查询 → 团队/成员/webhook → 建团队事件类型），每次都本地跑过 e2e 才提交。
 
-- **PR2a**：团队 + 成员管理（`POST /teams`、`GET /teams`、`GET /teams/{id}`、`POST/DELETE memberships`）
-- **PR2b**：团队事件类型创建（`POST /teams/{id}/event-types`，跟 §10 的 GET 合并成一个 controller）
-- **PR2c**：团队 webhook（`POST /teams/{id}/webhooks`）
+## 4. 开发顺序（实际执行记录）
 
-## 4. 建议开发顺序
+1. ✅ `GET /v2/teams/{teamId}/event-types`（§2）
+2. ✅ 建团队 + 加/减成员 + 团队 webhook（§3.2 前三块）
+3. ✅ 建团队事件类型（§3.2 第四块）—— 最后做是因为它依赖的 `createTeamEventType` 从零调用点开始，实际接入过程中发现的坑（§3.2）比其余三个端点加起来都多，属于"看起来简单、实测最复杂"的一项
 
-1. ✅ **PR1**（§2）：`GET /v2/teams/{teamId}/event-types` —— 已完成，本地验证通过
-2. **PR2a**（下一步）：建团队 + 加/减成员 —— staff 后台"建团队或复用已有团队、加减成员"的核心
-3. **PR2b**：建团队事件类型 —— 跟 PR1 共用同一个 controller 文件，可以紧跟着做
-4. **PR2c**：团队 webhook —— 涉及新 Repository 方法+新 Service，独立验证 URL 校验/查重逻辑
+## 5. 已解决 / 仍然待定的点
 
-## 5. 需要在动手前确认/注意的点
-
-1. **`RolesGuard` 是从未被实际使用过的代码**（全仓库 `@Roles(` 零命中）。它的团队分支逻辑（`checkUserRoleAccess` 里 `Boolean(teamId) && !Boolean(orgId)` 那一段）看起来完整，但没有被任何生产路径验证过。第一次接入时应该额外写端到端测试覆盖"非成员访问被拒""MEMBER 访问 ADMIN-only 端点被拒""ADMIN 正常访问"这几个分支，不能假设它"看起来对就是对"。
-2. **用 `RolesGuard`（OWNER/ADMIN/MEMBER 三级）还是接入 `TeamPermissionSetting` 细粒度权限系统**，本方案选了前者，因为后者目前完全绑定在 `packages/features` + tRPC 里，没有到 `apps/api/v2` 的路径，引入代价明显更高。如果 staff 后台后续需要比"ADMIN 才能加成员"更细的权限颗粒度，需要重新评估。
-3. **`POST /v2/teams` 的滥用风险**：任何持有有效 API key 的调用方都能建团队并自动成为 owner。§7.3 提到 `ApiKey.teamId` 可以把 key 锁定到某个团队，但"建团队"这个动作发生在团队存在之前，锁定字段起不到作用，需要额外考虑要不要限制"谁的 API key 能调用建团队接口"（例如只允许系统管理员级别的 key）。
-4. **§10 的数据暴露面**：`getTeamEventTypeBySlug` 走的是 `include`（不是 `select`），会带出 `users`/`hosts`/`schedule`/`destinationCalendar` 等完整关联数据。虽然复用现成方法能省事，但对着"服务器对服务器查 eventTypeId"这个具体用途，默认返回这么多字段超出了 `data-prefer-select-over-include.md` 建议的"按需 select"原则。已有的 `hostsLimit` 参数能部分缓解（传 0 可以不带 host），但 `users`/`schedule` 等字段目前没有开关。实现时评估是否要为这个新端点单独包一层更瘦的输出 DTO，而不是直接把 `DatabaseTeamEventType` 全量吐出去。
+1. ~~`RolesGuard` 是从未被实际使用过的代码~~ —— **已验证**。§2/§3 的 5 个 e2e spec 文件专门覆盖了它的授权/拒绝两条分支（"非成员访问被拒""TEAM_MEMBER 访问被拒需要 TEAM_ADMIN 的端点""ADMIN/OWNER 正常访问"），全部通过，不再是未验证代码。
+2. **用 `RolesGuard`（OWNER/ADMIN/MEMBER 三级）还是接入 `TeamPermissionSetting` 细粒度权限系统**——本方案在 controller 层选了前者（原因不变，见下），但 §3.2 实测发现事件类型创建这类动作在**更深一层**（`createEventType` 内部）本来就会走 `TeamPermissionSetting`，且默认比 `RolesGuard` 更严（`OWNER` vs `TEAM_ADMIN`）。也就是说两套机制其实已经在同时生效、分层组合：`RolesGuard` 做入口粗粒度拦截（非团队成员早失败，省一次 DB/权限查询），`TeamPermissionSetting` 在具体动作内部做精细裁决。目前没有把 `TeamPermissionSetting` 直接接进 `RolesGuard` 本身，因为它仍然绑定在 `packages/features`，跨到 `apps/api/v2` 的引入代价没变；如果 staff 后台后续要用 API 直接**读/改**某个团队的权限配置（而不是被动受它约束），才需要重新评估。
+3. **`POST /v2/teams` 的滥用风险**：仍未处理。任何持有有效 API key 的调用方都能建团队并自动成为 owner。§7.3 提到 `ApiKey.teamId` 可以把 key 锁定到某个团队，但"建团队"这个动作发生在团队存在之前，锁定字段起不到作用，需要额外考虑要不要限制"谁的 API key 能调用建团队接口"（例如只允许系统管理员级别的 key）。
+4. **§10 的数据暴露面**：仍未处理。`getTeamEventTypeBySlug` 走的是 `include`（不是 `select`），会带出 `users`/`hosts`/`schedule`/`destinationCalendar` 等完整关联数据，超出"服务器对服务器查 eventTypeId"这个用途实际需要的字段。`hostsLimit=0` 能省掉 host 列表，但 `users`/`schedule` 等字段目前没有开关。
+5. **（新发现）建团队事件类型的三个坑**，详见 §3.2 第四块：`hosts[].priority` 需要手动做字符串标签→整数的转换（已修复）；`assignAllTeamMembers: true` 不会自动同步 Host 表，调用方必须显式传 `hosts`（已在 API 层留了注释说明，没有改动底层行为）；这个动作的默认权限门槛是 `TeamPermissionSetting` 里的 `OWNER`，比 `RolesGuard` 的 `TEAM_ADMIN` 更严（这是既有设计，不是 bug）。
 
 ## 6. 参考
 
