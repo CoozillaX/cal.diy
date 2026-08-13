@@ -453,7 +453,6 @@ export function BookingActionsDropdown({
           isOpenDialog={isOpenReassignDialog}
           setIsOpenDialog={setIsOpenReassignDialog}
           bookingId={booking.id}
-          teamId={booking.eventType?.team?.id || 0}
           isManagedEvent={booking.eventType?.parentId != null}
         />
       )}
