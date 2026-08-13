@@ -12,9 +12,12 @@ import { AppModule } from "@/app.module";
 import { bootstrap } from "@/bootstrap";
 import { PrismaModule } from "@/modules/prisma/prisma.module";
 import { CreateMembershipInputDto } from "@/modules/teams/inputs/create-membership.input";
+import { UpdateMembershipInputDto } from "@/modules/teams/inputs/update-membership.input";
+import { UpdateTeamInputDto } from "@/modules/teams/inputs/update-team.input";
 import { TokensModule } from "@/modules/tokens/tokens.module";
 import { UsersModule } from "@/modules/users/users.module";
 import { UserWithProfile } from "@/modules/users/users.repository";
+import { CreateWebhookInputDto } from "@/modules/webhooks/inputs/webhook.input";
 
 // Covers the RolesGuard role-hierarchy comparison itself (TEAM_MEMBER vs the TEAM_ADMIN minimum required
 // by these two routes), as opposed to teams-management.e2e-spec.ts which only ever calls as an OWNER and
@@ -91,5 +94,43 @@ describe("TeamMembershipsController permissions (e2e)", () => {
 
   it("returns 403 removing a member as a plain MEMBER (below the TEAM_ADMIN minimum)", () => {
     return request(app.getHttpServer()).delete(`/v2/teams/${team.id}/memberships/${target.id}`).expect(403);
+  });
+
+  it("returns 403 changing a member's role as a plain MEMBER (below the TEAM_ADMIN minimum)", () => {
+    return request(app.getHttpServer())
+      .patch(`/v2/teams/${team.id}/memberships/${target.id}`)
+      .send({ role: "ADMIN" } satisfies UpdateMembershipInputDto)
+      .expect(403);
+  });
+
+  it("returns 200 listing members as a plain MEMBER (TEAM_MEMBER is the minimum for reads)", () => {
+    return request(app.getHttpServer())
+      .get(`/v2/teams/${team.id}/memberships`)
+      .expect(200)
+      .then((res) => {
+        expect(res.body.data.some((m: { userId: number }) => m.userId === plainMember.id)).toBe(true);
+      });
+  });
+
+  it("returns 403 updating the team as a plain MEMBER (below the TEAM_ADMIN minimum)", () => {
+    return request(app.getHttpServer())
+      .patch(`/v2/teams/${team.id}`)
+      .send({ name: "should not apply" } satisfies UpdateTeamInputDto)
+      .expect(403);
+  });
+
+  it("returns 403 deleting the team as a plain MEMBER (below the TEAM_OWNER minimum)", () => {
+    return request(app.getHttpServer()).delete(`/v2/teams/${team.id}`).expect(403);
+  });
+
+  it("returns 403 creating a team webhook as a plain MEMBER (below the TEAM_ADMIN minimum)", () => {
+    return request(app.getHttpServer())
+      .post(`/v2/teams/${team.id}/webhooks`)
+      .send({
+        subscriberUrl: "https://example.com/should-not-be-created",
+        triggers: ["BOOKING_CREATED"],
+        active: true,
+      } satisfies CreateWebhookInputDto)
+      .expect(403);
   });
 });

@@ -4,6 +4,8 @@ import { MembershipsRepository } from "@/modules/memberships/memberships.reposit
 import { TeamsEventTypesRepository } from "@/modules/teams/event-types/teams-event-types.repository";
 import { CreateMembershipInputDto } from "@/modules/teams/inputs/create-membership.input";
 import { CreateTeamInputDto } from "@/modules/teams/inputs/create-team.input";
+import { UpdateMembershipInputDto } from "@/modules/teams/inputs/update-membership.input";
+import { UpdateTeamInputDto } from "@/modules/teams/inputs/update-team.input";
 import { TeamsRepository } from "@/modules/teams/teams/teams.repository";
 import { UserWithProfile } from "@/modules/users/users.repository";
 
@@ -37,6 +39,23 @@ export class TeamsManagementService {
     return this.teamsRepository.getTeamsUserIsMemberOf(userId);
   }
 
+  updateTeam(teamId: number, body: UpdateTeamInputDto) {
+    return this.teamsRepository.update(teamId, {
+      name: body.name,
+      slug: body.slug,
+    });
+  }
+
+  deleteTeam(teamId: number) {
+    // Membership / EventType / Webhook rows all cascade-delete on Team in the schema, so nothing else
+    // needs cleaning up here.
+    return this.teamsRepository.delete(teamId);
+  }
+
+  listMembers(teamId: number) {
+    return this.membershipsRepository.findByTeamId(teamId);
+  }
+
   addMember(teamId: number, body: CreateMembershipInputDto) {
     return this.membershipsRepository.createMembership(
       teamId,
@@ -44,6 +63,10 @@ export class TeamsManagementService {
       body.role ?? MembershipRole.MEMBER,
       body.accepted ?? true
     );
+  }
+
+  updateMemberRole(teamId: number, userId: number, body: UpdateMembershipInputDto) {
+    return this.membershipsRepository.updateRole(teamId, userId, body.role);
   }
 
   async removeMember(teamId: number, userId: number) {

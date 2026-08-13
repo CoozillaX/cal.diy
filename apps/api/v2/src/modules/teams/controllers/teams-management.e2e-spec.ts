@@ -14,6 +14,8 @@ import { bootstrap } from "@/bootstrap";
 import { PrismaModule } from "@/modules/prisma/prisma.module";
 import { CreateMembershipInputDto } from "@/modules/teams/inputs/create-membership.input";
 import { CreateTeamInputDto } from "@/modules/teams/inputs/create-team.input";
+import { UpdateMembershipInputDto } from "@/modules/teams/inputs/update-membership.input";
+import { UpdateTeamInputDto } from "@/modules/teams/inputs/update-team.input";
 import { TokensModule } from "@/modules/tokens/tokens.module";
 import { UsersModule } from "@/modules/users/users.module";
 import { UserWithProfile } from "@/modules/users/users.repository";
@@ -166,6 +168,68 @@ describe("TeamsController + TeamMembershipsController (e2e)", () => {
           team.id
         );
         expect(membership).not.toBeNull();
+      });
+  });
+
+  it("lists team members", () => {
+    return request(app.getHttpServer())
+      .get(`/v2/teams/${team.id}/memberships`)
+      .expect(200)
+      .then((res) => {
+        expect(res.body.status).toEqual(SUCCESS_STATUS);
+        expect(res.body.data.some((m: { userId: number }) => m.userId === owner.id)).toBe(true);
+        expect(res.body.data.some((m: { userId: number }) => m.userId === memberToAdd.id)).toBe(true);
+      });
+  });
+
+  it("changes a member's role", () => {
+    return request(app.getHttpServer())
+      .patch(`/v2/teams/${team.id}/memberships/${memberToAdd.id}`)
+      .send({ role: "ADMIN" } satisfies UpdateMembershipInputDto)
+      .expect(200)
+      .then(async (res) => {
+        expect(res.body.status).toEqual(SUCCESS_STATUS);
+        expect(res.body.data.role).toEqual("ADMIN");
+
+        const membership = await membershipRepositoryFixture.getUserMembershipByTeamId(
+          memberToAdd.id,
+          team.id
+        );
+        expect(membership?.role).toEqual("ADMIN");
+      });
+  });
+
+  it("updates team info", () => {
+    const newName = `teams-management-renamed-${randomString()}`;
+
+    return request(app.getHttpServer())
+      .patch(`/v2/teams/${team.id}`)
+      .send({ name: newName } satisfies UpdateTeamInputDto)
+      .expect(200)
+      .then(async (res) => {
+        expect(res.body.status).toEqual(SUCCESS_STATUS);
+        expect(res.body.data.name).toEqual(newName);
+
+        const dbTeam = await teamRepositoryFixture.get(team.id);
+        expect(dbTeam?.name).toEqual(newName);
+      });
+  });
+
+  it("deletes a team", () => {
+    return teamRepositoryFixture
+      .create({ name: `teams-management-to-delete-${randomString()}`, isOrganization: false })
+      .then(async (teamToDelete) => {
+        await membershipRepositoryFixture.create({
+          role: "OWNER",
+          user: { connect: { id: owner.id } },
+          team: { connect: { id: teamToDelete.id } },
+          accepted: true,
+        });
+
+        await request(app.getHttpServer()).delete(`/v2/teams/${teamToDelete.id}`).expect(200);
+
+        const dbTeam = await teamRepositoryFixture.get(teamToDelete.id);
+        expect(dbTeam).toBeNull();
       });
   });
 

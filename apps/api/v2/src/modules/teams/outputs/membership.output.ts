@@ -2,7 +2,7 @@ import { ERROR_STATUS, SUCCESS_STATUS } from "@calcom/platform-constants";
 import { MembershipRole } from "@calcom/platform-libraries";
 import { ApiProperty } from "@nestjs/swagger";
 import { Expose, Type } from "class-transformer";
-import { IsBoolean, IsEnum, IsInt, ValidateNested } from "class-validator";
+import { IsArray, IsBoolean, IsEnum, IsInt, ValidateNested } from "class-validator";
 
 export class MembershipOutputDto {
   @IsInt()
@@ -37,4 +37,17 @@ export class MembershipOutputResponseDto {
   @ValidateNested()
   @Type(() => MembershipOutputDto)
   data!: MembershipOutputDto;
+}
+
+export class MembershipsOutputResponseDto {
+  @ApiProperty({ example: SUCCESS_STATUS, enum: [SUCCESS_STATUS, ERROR_STATUS] })
+  @IsEnum([SUCCESS_STATUS, ERROR_STATUS])
+  @Expose()
+  status!: typeof SUCCESS_STATUS | typeof ERROR_STATUS;
+
+  @Expose()
+  @ValidateNested({ each: true })
+  @Type(() => MembershipOutputDto)
+  @IsArray()
+  data!: MembershipOutputDto[];
 }

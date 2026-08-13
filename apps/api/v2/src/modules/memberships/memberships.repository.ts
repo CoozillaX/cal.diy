@@ -138,6 +138,24 @@ export class MembershipsRepository {
     });
   }
 
+  async updateRole(teamId: number, userId: number, role: MembershipRole) {
+    return this.dbWrite.prisma.membership.update({
+      where: {
+        userId_teamId: {
+          userId,
+          teamId,
+        },
+      },
+      data: { role },
+    });
+  }
+
+  async findByTeamId(teamId: number) {
+    return this.dbRead.prisma.membership.findMany({
+      where: { teamId },
+    });
+  }
+
   async getUserAdminOrOwnerTeamMembership(userId: number, teamId: number) {
     return this.dbRead.prisma.membership.findFirst({
       where: {
