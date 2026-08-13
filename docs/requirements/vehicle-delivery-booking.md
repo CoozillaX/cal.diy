@@ -1,7 +1,7 @@
 # 需求分析：车辆交付预约系统（基于 cal.diy）
 
 > 状态：分析阶段，尚未开始开发。本文档汇总讨论过程中的结论，供排期和跟 staff 后台对齐使用。
-> 最后更新：2026-08-12
+> 最后更新：2026-08-13
 
 ## 1. 背景
 
@@ -16,7 +16,7 @@
 | 1 | 客户可以随时自助预约 | 已有，公开预约页本身不需要登录 | 否 |
 | 2 | 预约先在 team 内部分配，分配不了转店长 | Round-robin 事件类型 + `Host.priority`（销售中/高优先级，店长最低优先级）即可实现 | 否，纯配置 |
 | 3 | 店长作为保底，不能因为自己排班窄而约不进去 | 店长的 Schedule 覆盖范围需要 ≥ 事件类型对外开放的完整预约窗口 | 否，纯配置（需要注意的坑，见 §3.3） |
-| 4 | 店长作为保底，不能因为同一时间已有别的预约就被排除 | Cal.com 的轮询分配对已占用时间段有硬性冲突过滤，无法通过配置绕过 | **已完成**（提交校验 + slot 显示层），见 §4.1 |
+| 4 | 店长作为保底，不能因为同一时间已有别的预约就被排除 | Cal.com 的轮询分配对已占用时间段有硬性冲突过滤，无法通过配置绕过；已重做为事件类型级独立保底人 + Unallocated 队列 + 重新分配，不再是 per-host 复选框 | **已完成**（架构已重做），见 §4.1 |
 | 5 | 按事件类型设置不同可用性（如圣诞节不能交车，但可预约参观） | 用"事件类型绑定独立 Schedule + date override"实现，不需要拆分 team | 否，纯配置 |
 | 6 | 电话预约：销售代客户在系统里下单 | 公开预约页本身不限制身份，销售直接代填客户信息提交即可 | 否（除非要做更顺手的内部代填 UI，那是可选的增量工作） |
 | 7 | 权限：销售不能随意取消预约 | 本次会话已完成的 `TEAM_PERMISSIONS.BOOKING_CANCEL`，默认最低角色 ADMIN，销售（member）默认不能取消 | **已完成** |
@@ -34,6 +34,7 @@
 - 销售设置正常 `Host.priority`（如 Medium/High）
 - 店长设置最低 `Host.priority`（Low）
 - 原理：`packages/features/bookings/lib/getLuckyUser.ts` 的轮询分配逻辑，只在"当前有空的候选人里选优先级最高的一档"。只要还有一个销售当时有空，系统绝不会选中店长；只有所有销售那个时间段都没空时，店长（若他也有空）才会被选中。
+- 注意：这个纯配置方案里的店长仍然是 `hosts` 池里的普通一员，仍然会被硬性冲突过滤挡住——如果店长自己那个时间点也有别的预约，一样约不进去，不是真正的"最后一道保底"。真正不受冲突过滤影响、事件类型级独立配置的保底人机制见 §4.1（`EventType.fallbackHostUserId`），两者是互相独立的选项，可以只用其中一个，也可以同时配置。
 
 ### 3.2 按事件类型设置不同可用性
 
@@ -49,33 +50,41 @@
 
 ## 4. 需要开发的项
 
-### 4.1 店长忽略时间冲突（始终可被分配）—— 已完成（含 slot 显示层 + DB 层去重）
+### 4.1 店长保底（事件类型级独立兜底人 + Unallocated 队列 + 重新分配）—— 已完成，架构已重做
 
-**问题**：Cal.com 轮询分配在 `packages/features/bookings/lib/handleNewBooking/ensureAvailableUsers.ts` 中有硬性冲突过滤：
+> 本节取代了 2026-08-12 及更早版本描述的 `Host.ignoreTimeConflicts`（per-host 复选框）方案。旧方案已在下面提到的这批提交里被完全移除；这里描述的是当前生效的架构。改造原因：旧方案把店长变成"轮询候选池里的一个、只是不检查冲突"的特殊 host，混在正常销售的 `hosts` 列表里，容易被误勾选/误配置，而且没有回收机制——一旦保底成功，那条预约跟其他正常预约没有区别，没人会注意到它其实是"硬塞"进去的，也没有把它转交给真人的流程。
 
-```ts
-checkForConflicts({ busy: bufferedBusyTimes, time: ..., eventLength: ... })
-```
+**新架构的核心变化**：保底人**完全独立于** `hosts` 列表，是事件类型上的一个单独指针（`EventType.fallbackHostUserId`），只有当轮询分配在正常 host 池里**真的一个人都选不出来**时才会用到；保底成功的预约会带一个专门的状态落进保底人自己的"Unallocated"（待分配）队列，等人工把它转交给一个真正的销售，而不是悄悄混进正常预约列表里。
 
-只要候选人在该时间段已有一条预约（不论是本事件类型还是其他、甚至同步的外部日历事件），会被直接从候选池中排除，没有开关可以绕过。若所有销售 + 店长都因各自已有安排被排除，会直接报错"无可用人员"，客户约不上。
+**1）事件类型配置 —— Assignment 标签新增独立开关**
 
-**需求**：店长作为保底角色，即使已有重叠预约，也应该始终能被分配到新的一条。
+- `packages/prisma/schema.prisma`：删除 `Host.ignoreTimeConflicts`；新增 `EventType.fallbackHostUserId Int?`（`onDelete: SetNull`，指向 `User`），与 `hosts` 完全脱钩，不占用 `Host` 表的一行
+- Assignment 标签页 host 列表下方新增一个独立的 Switch（"启用保底"）+ 人员选择器；开启后只能选**一个人**，候选名单是团队里"满足该团队配置的 `booking.reassign` 最低角色要求"的成员（复用本仓库早前完成的 Team 权限系统，见 §8）——保底人必须是一个有权限把预约转交给别人的人，否则保底了也没法转出去
+- 关掉开关只是把 `fallbackHostUserId` 清空，不会动 `hosts` 列表一根汗毛，因为保底人从来就不是 host
 
-**已完成的部分**：
+**2）预约分配 —— 只在轮询真的选不出人时才兜底**
 
-1. `packages/prisma/schema.prisma` — `Host` 模型加了 `ignoreTimeConflicts` 布尔字段（默认 `false`），已迁移
-2. `ensureAvailableUsers.ts` — 该 host 被标记时跳过 `checkForConflicts`（仍然落在他自己配置的工作时间窗口内，不会变成 24 小时随便约）—— 这一步管的是**预约提交那一刻**的最终校验
-3. 团队事件类型编辑页 → Assignment 标签 → host 列表 → 加了一个盾牌图标开关（priority/weight 旁边），owner 可以勾选；已在浏览器里端到端验证：勾选、保存、刷新页面后状态正确读回，数据库里 `Host.ignoreTimeConflicts` 字段正确持久化
-4. `packages/features/availability/lib/getUserAvailability.ts` —— 客户在日历上"能看到哪些时间段可点"走的是完全独立的另一套计算（`UserAvailabilityService.getUsersAvailability`，被 `slots.getSchedule` 调用，驱动 Booker 日历实际渲染），之前不认识这个字段，即使店长被标记了"忽略冲突"，那个时间段在客户日历上也不会显示成可点——这一步补上了同样的跳过逻辑，让 slot **显示**层和**提交**层保持一致
-5. `packages/prisma/extensions/booking-idempotency-key.ts` —— 实测发现即使前两层都修好，"真正提交预约"这一步还是会被静默拦下：`Booking.idempotencyKey`（数据库唯一约束）之前只由 `开始时间.结束时间.组织者` 三者算出，同一个组织者在同一个时间段的第二条预约会跟第一条撞键，代码里对撞键的处理是"直接返回已存在的那条"而不是报错——也就是说客户点"确认预约"看起来成功了，但实际上没有新建任何记录，返回的还是第一条预约的详情页。这一层跟"是不是同一个客户"完全无关，哪怕是两个完全不同的客户各自约同一个店长的同一个重叠时段，第二个人也会被静默重定向到第一个人的预约上。
+- `packages/features/bookings/lib/handleNewBooking/resolveFallbackHost.ts`：轮询分配在正常 `hosts` 池里因为"没人在这个时间点有空"（`NoAvailableUsersFound` / `RoundRobinHostsUnavailableForBooking`）而失败时才会被调用；如果失败原因是别的（比如某个必须固定出席的 host 缺席），不会触发保底
+- 保底判定**只看保底人自己配置的 Schedule 覆盖范围**（`buildDateRanges`，跟 §3.3 提到的"店长排班要覆盖完整窗口"是同一个概念），**刻意不检查保底人当时是否已有别的预约**——这正是保底存在的意义：所有正常销售 + 保底人的 Schedule 都覆盖这个时间点，但保底人已经被别的预约占用时，仍然应该分给保底人兜底，而不是报错"约不上"
+- `packages/trpc/server/routers/viewer/slots/util.ts`：客户日历上的可点时段计算（`AvailableSlotsService`）同步补了一条保底人的合成可用性，逻辑跟提交时一致，避免"提交时能兜底，但客户日历上那个时间点根本不显示成可点"的层间不一致（这是 §4.1 旧版本已经踩过的坑，这次直接在设计阶段就避免了）
+- 保底成功的预约状态设为 `AWAITING_HOST`（复用 schema 里一个此前只属于一个基本已废弃的"即时会议"功能、从未被任何在用代码路径写入过的枚举值，经过全仓库排查确认可以安全复用），而不是正常的 `ACCEPTED`；**仅对无需人工确认的事件类型生效**——需要确认的事件类型走原有 `PENDING` 流程，不受影响
 
-   第一版修复把参与人邮箱 folded 进这个 key 的计算里（`242ef255eb`），但邮箱是访客预约表单上未经验证、客户端提交的字段，伪造成本为零，用它做"是否同一个人"的判断依据并不可靠。后来按用户明确要求（"别用邮箱吧，可以用创建时间这种"）改成了直接把提交时刻 `Date.now()` folded 进去（`bca439fb87`），让**每一次**提交都拿到独立的 key——包括同一个人手滑点两次也会各自成功建一条记录。这看起来放弃了"同一个人不能约两次"的保护，但排查发现这个保护本来就是由另一处、完全独立、更早生效的机制在提供：`RegularBookingService.ts`（约 709-757 行）在真正 `create()` 之前，会用 `bookerEmail`/`bookerPhoneNumber` + `eventTypeId` + `startTime` 去查 `getValidBookingFromEventTypeForAttendee`（仅对轮询分配或默认待确认的事件类型生效），如果同一个参与人在同一个时间段已经有一条有效预约，直接返回那条已有预约、根本不会走到 `idempotencyKey` 这一层。也就是说"同一个客户不能重复约同一时段"这件事一直是靠参与人身份而不是 `idempotencyKey` 保证的，`idempotencyKey` 只需要负责"DB 唯一约束不能被两个无关请求意外撞上"这一件事，folded 进 `Date.now()` 是安全的。
+**3）Bookings 列表 —— 新增 Unallocated 标签**
 
-提交记录：`f18d847f9c`（后端-提交校验）、`c0e5e0d8dc`（UI 开关）、`ef41fd5e42`（后端-slot 显示层）、`242ef255eb`（DB 层去重键，邮箱版，已被下面这条取代）、`bca439fb87`（DB 层去重键改为提交时刻版）。
+- 在"Upcoming"标签前新增"Unallocated"标签（但默认打开的仍然是 Upcoming，不改变现有习惯）；后端按 `status = 'awaiting_host'` 过滤，同时把这类预约从"Upcoming"的查询条件里排除掉，避免同一条出现在两个标签下
+- Unallocated 下的行内操作（改期、改地点、加访客、取消、Reassign 等）跟 Upcoming 完全一致，不需要单独开发——这是因为行操作的门控逻辑本来就是"按标签是否是 recurring/unconfirmed 特判，其余情况一律走 upcoming 同款操作"，新标签天然落在"其余情况"里
 
-**验证方式**：
-- 提交校验 + slot 显示层：给店长在某个工作时段内创建一条"占用"预约，标记 `ignoreTimeConflicts=true` 后，确认客户日历上那个时间段仍显示可点；改回 `false`（预约不变）后重新确认那个时间段从日历上消失——两个方向都验证过。
-- DB 层去重键：用两个不同的客户身份（不同邮箱）在浏览器里各自完整走一遍预约流程、约同一个重叠时段，确认数据库里生成了两条独立的 `accepted` 预约记录、各自的 `idempotencyKey` 不同；然后用其中一个客户的身份再提交一次同一时段，确认正确被重定向回该客户已有的那条预约（没有生成第三条，符合 `getValidBookingFromEventTypeForAttendee` 的预期行为）——这一步是被用户实测"同一时间约两次"发现的，一开始没验证到这一层，后来专门补上了。
+**4）重新分配（Reassign）—— 顺带发现并重做，手动 + 自动都做了**
+
+开发过程中发现"重新分配"这个功能（不只是保底场景，round-robin 预约的重新分配整体）当时是完全坏的：UI 弹窗还在，但背后调用的 tRPC 接口在仓库剥离 Enterprise Edition 代码时被整体删除了，前端留下的是硬编码的空操作桩。既然 Unallocated 预约必须靠重新分配才能转成正常 Upcoming 预约，这部分不修好整个方案就不闭环，所以一并重做：
+
+- 新增 `packages/features/bookings/lib/roundRobinReassignment/`：`applyReassignment`（核心：换 `Booking.userId`、把 `AWAITING_HOST` 转回 `ACCEPTED`、记 `reassignById`/`reassignReason`、尽力同步日历事件、写一条 `AssignmentReason` 审计记录）+ `manualReassignRoundRobinHost`（手动指定人）+ `autoReassignRoundRobinHost`（系统按现有的 `LuckyUserService` 自动挑）+ `getReassignmentCandidates`（给弹窗提供候选名单，同样按 `booking.reassign` 最低角色过滤）
+- 候选人 / 自动挑选的池子统一从 `eventType.hosts`（真正的轮询 host 记录）取，**不是** `eventType.users`——后者是一个团队轮询事件类型里几乎总是空的历史遗留关联表，第一版实现踩了这个坑（浏览器里实测 automatic reassign 报"没有配置其他 host"，人工排查确认 `_user_eventtype` 表对这个事件类型是空的），已修正
+- 在 `viewer.teams.*` 下恢复了三个 tRPC 接口（`getRoundRobinHostsToReassign` / `roundRobinReassign` / `roundRobinManualReassign`），前端 `ReassignDialog.tsx` 接回真实调用；managed-event 类型的重新分配（另一种排期类型）明确保持未实现，不在本次范围内
+
+**验证方式**：全程在浏览器里用两个测试账号（team owner + team member）端到端走过：配置保底开关和人选、把两个正常销售的排班收窄到互不重叠的日子、用保底人身份约进一条 `AWAITING_HOST` 预约、确认它出现在保底人的 Unallocated 标签而不是 Upcoming；然后分别用手动重新分配（指定候选人）和自动重新分配（系统挑）把它转出去，确认数据库里 `status` 正确转回 `ACCEPTED`、`userId`/`reassignById`/`reassignReason` 正确写入、生成了 `AssignmentReason` 记录，且该预约从 Unallocated 消失、出现在新负责人的 Upcoming 里；自动重新分配那一步正是在这个过程中发现并修正了上面提到的 `eventType.hosts` vs `eventType.users` 的 bug。
+
+提交记录（按顺序）：`b0034380b5` `d4d28da68c`（事件类型级保底指针 + Assignment 开关，替换旧的 per-host 方案）、`dd11a2abfa`（提交时分配保底 + `AWAITING_HOST`）、`1f5457215e`（slot 显示层同步）、`8b47310d8a` `42094689c2`（Unallocated 标签，前后端）、`9432adfeaf` `1c6f2a0173` `415187e15e` `624d9dec84`（重新分配重做，仓库层 + service + tRPC + 前端接线）。
 
 ### 4.2 预填字段的动态锁定（如 VIN）
 
@@ -137,7 +146,7 @@ staff 后台只需要记住"团队 ID + 一个语义化的 slug"（如 `vehicle-
 1. **P0 - 直接配置，可立即验证**：§3.1 / §3.2 / §3.3（round-robin 优先级 + 按事件类型 Schedule）
 2. **P1 - 小规模开发，支撑交车邀请闭环**：§4.3（team 事件类型查询接口）、§7（团队自动化管理 API）
 3. **P2 - 中等规模开发**：§4.2（预填字段动态锁定）
-4. **已完成**：§4.1（店长忽略冲突）—— 提交校验 + slot 显示层都已接上并验证
+4. **已完成**：§4.1（店长保底：事件类型级独立兜底人 + Unallocated 队列 + 重新分配）—— 分配、显示层、Unallocated 队列、手动/自动重新分配均已接上并端到端验证
 5. **待外部依赖**：§5（账号打通）—— 卡在 staff 后台还没有可对接的协议，需要先跟对方确认
 
 ## 7. staff 后台自动化管理 API（团队 / 成员 / 事件类型 / Webhook）
