@@ -91,6 +91,7 @@
 - Managed event type（另一种排期类型）的重新分配保持未实现，走该类型的预约不受本节任何改动影响。
 - 重新分配时的日历/视频同步是尽力而为（`try/catch` 包裹，从不阻塞核心的 DB 更新）——把已创建的日历事件真正迁移到新负责人的日历账号下是一个大得多的操作（相当于跨账号取消+重建），不在本次范围内。
 - 保底/Unallocated 仅对**无需人工确认**的事件类型生效；需要确认的事件类型完全不受影响，继续走原有 `PENDING` 流程。
+- `Booking.status = AWAITING_HOST` 永远不会被后台任务自动改掉；Unallocated/Upcoming/Past 三个标签纯粹按 `endTime` 时间窗口 + `status` 做查询过滤（`packages/trpc/server/routers/viewer/bookings/get.handler.ts` 的 `addStatusesQueryFilters`），`endTime` 一过就会从 Unallocated 消失、出现在 Past 里——这时 Reassign/Cancel 会因为 `isBookingInPast`（`bookingActions.ts` 里几乎所有编辑类操作的通用门控）一起变灰。**这是预期行为，不是 bug**：`Booking.userId` 本来就已经指向保底人，"过期未处理"等价于"保底人自己的预约过期没人管"，跟其他任何过期未处理的正常预约是同一类情况，不需要特殊放开。
 
 **验证方式**：全程在浏览器里用两个测试账号（team owner + team member）端到端走过：配置保底开关和人选、把两个正常销售的排班收窄到互不重叠的日子、用保底人身份约进一条 `AWAITING_HOST` 预约、确认它出现在保底人的 Unallocated 标签而不是 Upcoming、确认该标签下 Reschedule/Request reschedule/Edit location/Add guests 均为禁用状态（可见但灰置）；然后分别用手动重新分配（指定候选人）和自动重新分配（系统挑）把它转出去，确认数据库里 `status` 正确转回 `ACCEPTED`、`userId`/`reassignById`/`reassignReason` 正确写入、生成了 `AssignmentReason` 记录，且该预约从 Unallocated 消失、出现在新负责人的 Upcoming 里；也验证了 Cancel 对 Unallocated 预约仍然正常生效。自动重新分配那一步发现并修正了上面提到的 `eventType.hosts` vs `eventType.users` 的 bug；另外 Assignment 标签页的保底开关本身也曾有一个 Prisma 层的 bug（`fallbackHostUserId` 带 `@relation` 后不能作为裸标量字段出现在 `Prisma.EventTypeUpdateInput.data` 里，报 "Unknown argument fallbackHostUserId. Did you mean fallbackHostUser?"），已改为标准的 `connect`/`disconnect` 关系写法修复。
 
