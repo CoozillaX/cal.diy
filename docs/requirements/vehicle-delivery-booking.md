@@ -1,7 +1,7 @@
 # 需求分析：车辆交付预约系统（基于 cal.diy）
 
 > 状态：分析阶段，尚未开始开发。本文档汇总讨论过程中的结论，供排期和跟 staff 后台对齐使用。
-> 最后更新：2026-08-13（补充：Unallocated 行内操作收窄为 Reassign + Cancel）
+> 最后更新：2026-08-13（更正：§4.2 预填字段动态锁定其实已有功能，不需要开发）
 
 ## 1. 背景
 
@@ -21,7 +21,7 @@
 | 6 | 电话预约：销售代客户在系统里下单 | 公开预约页本身不限制身份，销售直接代填客户信息提交即可 | 否（除非要做更顺手的内部代填 UI，那是可选的增量工作） |
 | 7 | 权限：销售不能随意取消预约 | 本次会话已完成的 `TEAM_PERMISSIONS.BOOKING_CANCEL`，默认最低角色 ADMIN，销售（member）默认不能取消 | **已完成** |
 | 8 | 车辆生命周期到"可交付"时，staff 后台请求预约系统向客户发一条只能约一次的邀请 | 用 Cal.com 现有的 Private Link（`HashedLink`，`maxUsageCount: 1`）+ 现有 API `POST /v2/event-types/{eventTypeId}/private-links` 实现 | 否，现有 API 已支持（见 §4.3 需要补的查询接口） |
-| 9 | 邀请链接需要根据已有客户信息（如 VIN）预填并锁定字段，不可编辑 | URL 预填机制已存在，但"仅当预填了值才锁定，否则可编辑"的动态锁定行为不存在 | **是**，见 §4.2 |
+| 9 | 邀请链接需要根据已有客户信息（如 VIN）预填并锁定字段，不可编辑 | 自定义问题上的 `disableOnPrefill` 开关已实现这个动态锁定行为，网页 UI 和 API v2 都能配置 | 否，纯配置，见 §4.2 |
 | 10 | staff 后台需要动态知道某个用途对应哪个事件类型，不能写死数字 ID | 需要一个按团队 + slug 查询事件类型的公开 API | **是**，见 §4.3 |
 | 11 | 账号与 staff 后台打通 | staff 后台没有标准 SSO 协议（非 SAML/OIDC），需要自建信任桥接 | **是**，见 §5，待 staff 后台确定细节 |
 | 12 | staff 后台用"门店管理账号 key"自动化管理团队：建团队/用现有团队、加减成员、建事件类型、配 webhook | Service/Repository 层大部分已实现，只缺对外 REST controller | **是**，见 §7，规模小于预期 |
@@ -97,19 +97,21 @@
 
 提交记录（按顺序）：`b0034380b5` `d4d28da68c`（事件类型级保底指针 + Assignment 开关，替换旧的 per-host 方案）、`dd11a2abfa`（提交时分配保底 + `AWAITING_HOST`）、`1f5457215e`（slot 显示层同步）、`8b47310d8a` `42094689c2`（Unallocated 标签，前后端）、`9432adfeaf` `1c6f2a0173` `415187e15e` `624d9dec84`（重新分配重做，仓库层 + service + tRPC + 前端接线）、`287ac9c1b7`（修复保底开关的 Prisma 关系写法 bug）、`b85d24952b` `bed45388bd`（收窄 Unallocated 的行内操作到 Reassign + Cancel）。
 
-### 4.2 预填字段的动态锁定（如 VIN）
+### 4.2 预填字段的动态锁定（如 VIN）—— 已有功能，纯配置，不需要开发
 
-**现状**：
-- URL 参数预填机制已存在（`prefillFormParams`，如 `?vin=xxx` 能把值塞进对应问题）
-- 预约表单里有 `field.editable === "user-readonly"` 的字段模式（`apps/web/modules/bookings/components/BookEventForm/BookingFields.tsx:135`），命中时字段确实会渲染成不可编辑
-- 但这个模式是**写死在事件类型的问题配置上的**——要么这个问题永远锁定（不管客户是谁），要么永远可编辑；无法做到"仅当这次请求带了值才锁定，没带就正常可填"
-- 该"只读"选项在目前的自定义问题编辑器（`apps/web/modules/event-types/components/tabs/advanced/FormBuilder.tsx`）里也没有暴露成可勾选的入口，看起来是给系统内部保留的值
+> 本节结论与 2026-08-13 早前版本相反：当时排查只找到了 `editable: "user-readonly"`（写死锁定，无法感知预填）这一条路径，误判为"需要开发"。后来在实测 `?TestField=1` 类似的 URL 时发现字段确实会按预填动态锁定，重新排查后找到了实际生效的另一条独立机制，记录如下。
 
-**需求**：系统里已经有客户的 VIN 等信息时，客户打开预约链接应看到该字段已预填且不可编辑；如果没有，应保持可编辑。
+**现状**：已经完整支持"仅当这次请求带了非空值才锁定，没带就保持可编辑"，靠的是字段上一个独立于 `editable` 的布尔开关 `disableOnPrefill`：
 
-**建议方案**：改 `BookingFields.tsx` 里 `readOnly` 的判断逻辑，改为"这个字段被标记为可锁定 + URL 预填参数里这个字段确实带了非空值"才锁定，否则维持可编辑。可能还需要在事件类型问题配置里加一个"允许被预填锁定"的开关。
+- 自定义问题上勾选 `disableOnPrefill` 后，`packages/features/form-builder/useShouldBeDisabledDueToPrefill.tsx` 会在渲染时把**当前 URL query 参数**跟**当前表单值**比对：URL 带了这个字段的值且和表单值一致 → 锁定；没带 → 不锁定
+- 额外处理了"锁定后又需要放开"的边界情况：如果用户已经手动改过这个字段（进了 `formState.dirtyFields`），即使 URL 参数还在，也不会强行锁回去——避免"预填值有误，用户改到一半突然被锁死"
+- 最终在 `apps/web/modules/form-builder/components/FormBuilderField.tsx:100` 合并两条独立路径：`readOnly={readOnly || shouldBeDisabled}`（`readOnly` 是静态的 `user-readonly`，`shouldBeDisabled` 就是这里说的动态判断）
 
-**规模**：中等，一处表单逻辑改动 + 可能的一小块配置 UI。
+**配置入口，网页 UI 和 API v2 都有**：
+- 网页 UI：事件类型 → Advanced → 自定义问题编辑器，勾选框文案"Disable input if prefilled"（`apps/web/modules/event-types/components/tabs/advanced/FormBuilder.tsx:693-696`）
+- API v2：`disableOnPrefill` 是自定义字段 create/update 接口的合法输入参数，一路透传到内部表示（`apps/api/v2/src/platform/event-types/event-types_2024_06_14/transformers/api-to-internal/booking-fields.ts`）——staff 后台建 VIN 问题时直接在请求体里带上这个字段即可，不需要额外开发
+
+**结论**：staff 后台这边只需要在建"VIN"这个自定义问题时把 `disableOnPrefill` 设为 `true`，链接里带 `?vin=车架号` 时客户会看到该字段已预填且锁定；如果链接没带这个参数，字段保持正常可编辑——跟 §4.4 描述的调用链天然兼容，不需要额外开发。
 
 ### 4.3 按团队 + slug 查询事件类型（供 staff 后台动态发现）
 
@@ -154,10 +156,9 @@ staff 后台只需要记住"团队 ID + 一个语义化的 slug"（如 `vehicle-
 
 ## 6. 优先级建议
 
-1. **P0 - 直接配置，可立即验证**：§3.1 / §3.2 / §3.3（round-robin 优先级 + 按事件类型 Schedule）
+1. **P0 - 直接配置，可立即验证**：§3.1 / §3.2 / §3.3（round-robin 优先级 + 按事件类型 Schedule）、§4.2（预填字段动态锁定，`disableOnPrefill` 开关已有，纯配置）
 2. **P1 - 小规模开发，支撑交车邀请闭环**：§4.3（team 事件类型查询接口）、§7（团队自动化管理 API）
-3. **P2 - 中等规模开发**：§4.2（预填字段动态锁定）
-4. **已完成**：§4.1（店长保底：事件类型级独立兜底人 + Unallocated 队列 + 重新分配）—— 分配、显示层、Unallocated 队列、手动/自动重新分配均已接上并端到端验证
+3. **已完成**：§4.1（店长保底：事件类型级独立兜底人 + Unallocated 队列 + 重新分配）—— 分配、显示层、Unallocated 队列、手动/自动重新分配均已接上并端到端验证
 5. **待外部依赖**：§5（账号打通）—— 卡在 staff 后台还没有可对接的协议，需要先跟对方确认
 
 ## 7. staff 后台自动化管理 API（团队 / 成员 / 事件类型 / Webhook）
