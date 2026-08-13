@@ -25,4 +25,8 @@ export class TeamWebhooksService {
       secret: body.secret ?? null,
     });
   }
+
+  getTeamWebhooksPaginated(teamId: number, skip: number, take: number) {
+    return this.webhooksRepository.getTeamWebhooksPaginated(teamId, skip, take);
+  }
 }

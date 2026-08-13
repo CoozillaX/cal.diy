@@ -81,6 +81,14 @@ export class WebhooksRepository {
     });
   }
 
+  async getTeamWebhooksPaginated(teamId: number, skip: number, take: number) {
+    return this.dbRead.prisma.webhook.findMany({
+      where: { teamId },
+      skip,
+      take,
+    });
+  }
+
   async getOAuthClientWebhooksPaginated(platformOAuthClientId: string, skip: number, take: number) {
     return this.dbRead.prisma.webhook.findMany({
       where: { platformOAuthClientId },
