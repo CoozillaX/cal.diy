@@ -1,7 +1,7 @@
 # 需求分析：车辆交付预约系统（基于 cal.diy）
 
 > 状态：分析阶段，尚未开始开发。本文档汇总讨论过程中的结论，供排期和跟 staff 后台对齐使用。
-> 最后更新：2026-08-13
+> 最后更新：2026-08-13（补充：Unallocated 行内操作收窄为 Reassign + Cancel）
 
 ## 1. 背景
 
@@ -72,7 +72,10 @@
 **3）Bookings 列表 —— 新增 Unallocated 标签**
 
 - 在"Upcoming"标签前新增"Unallocated"标签（但默认打开的仍然是 Upcoming，不改变现有习惯）；后端按 `status = 'awaiting_host'` 过滤，同时把这类预约从"Upcoming"的查询条件里排除掉，避免同一条出现在两个标签下
-- Unallocated 下的行内操作（改期、改地点、加访客、取消、Reassign 等）跟 Upcoming 完全一致，不需要单独开发——这是因为行操作的门控逻辑本来就是"按标签是否是 recurring/unconfirmed 特判，其余情况一律走 upcoming 同款操作"，新标签天然落在"其余情况"里
+- **行内操作被有意收窄，不是跟 Upcoming 完全一致**（这是上线后根据实际使用反馈调整的——最初按"跟 Upcoming 一样"实现，但很快发现 Reschedule 对没有确定 host 的预约会直接报错"Could not find original booking"，且即便修好也没有意义）：
+  - **保留**：Reassign（解决问题的正路）、Cancel event（放弃这条）、Report booking
+  - **禁用（灰色可见，不隐藏）**：Reschedule booking、Request reschedule、Edit location、Add guests——这四个要么是"挪动时间/地点/访客"这类只有在真正有人接这单之后才有意义的编辑，要么（Reschedule）本身就会把同一个"没人有空"的问题原样搬到另一个时间点，不解决根本问题
+  - 判定逻辑集中在 `apps/web/components/booking/actions/bookingActions.ts` 的 `isActionDisabled`，按 `booking.status === AWAITING_HOST` 加一条排除条件，Reassign 单独拆出不受影响
 
 **4）重新分配（Reassign）—— 顺带发现并重做，手动 + 自动都做了**
 
@@ -82,9 +85,16 @@
 - 候选人 / 自动挑选的池子统一从 `eventType.hosts`（真正的轮询 host 记录）取，**不是** `eventType.users`——后者是一个团队轮询事件类型里几乎总是空的历史遗留关联表，第一版实现踩了这个坑（浏览器里实测 automatic reassign 报"没有配置其他 host"，人工排查确认 `_user_eventtype` 表对这个事件类型是空的），已修正
 - 在 `viewer.teams.*` 下恢复了三个 tRPC 接口（`getRoundRobinHostsToReassign` / `roundRobinReassign` / `roundRobinManualReassign`），前端 `ReassignDialog.tsx` 接回真实调用；managed-event 类型的重新分配（另一种排期类型）明确保持未实现，不在本次范围内
 
-**验证方式**：全程在浏览器里用两个测试账号（team owner + team member）端到端走过：配置保底开关和人选、把两个正常销售的排班收窄到互不重叠的日子、用保底人身份约进一条 `AWAITING_HOST` 预约、确认它出现在保底人的 Unallocated 标签而不是 Upcoming；然后分别用手动重新分配（指定候选人）和自动重新分配（系统挑）把它转出去，确认数据库里 `status` 正确转回 `ACCEPTED`、`userId`/`reassignById`/`reassignReason` 正确写入、生成了 `AssignmentReason` 记录，且该预约从 Unallocated 消失、出现在新负责人的 Upcoming 里；自动重新分配那一步正是在这个过程中发现并修正了上面提到的 `eventType.hosts` vs `eventType.users` 的 bug。
+**5）已知边界**
 
-提交记录（按顺序）：`b0034380b5` `d4d28da68c`（事件类型级保底指针 + Assignment 开关，替换旧的 per-host 方案）、`dd11a2abfa`（提交时分配保底 + `AWAITING_HOST`）、`1f5457215e`（slot 显示层同步）、`8b47310d8a` `42094689c2`（Unallocated 标签，前后端）、`9432adfeaf` `1c6f2a0173` `415187e15e` `624d9dec84`（重新分配重做，仓库层 + service + tRPC + 前端接线）。
+- 只有"提交预约"这个动作会走保底逻辑；但改期（reschedule）在 Cal.com 里底层复用的是同一条建预约流程（带上 `rescheduleUid`），所以一条**原本正常分配**的 round-robin 预约，如果被改期到一个"轮询池里所有人都没空"的新时间点，理论上同样会触发保底、变成 `AWAITING_HOST` 落进 Unallocated——这是沿用现有代码路径的自然结果，不是专门为保底做的新分支，暂未特殊处理。
+- Managed event type（另一种排期类型）的重新分配保持未实现，走该类型的预约不受本节任何改动影响。
+- 重新分配时的日历/视频同步是尽力而为（`try/catch` 包裹，从不阻塞核心的 DB 更新）——把已创建的日历事件真正迁移到新负责人的日历账号下是一个大得多的操作（相当于跨账号取消+重建），不在本次范围内。
+- 保底/Unallocated 仅对**无需人工确认**的事件类型生效；需要确认的事件类型完全不受影响，继续走原有 `PENDING` 流程。
+
+**验证方式**：全程在浏览器里用两个测试账号（team owner + team member）端到端走过：配置保底开关和人选、把两个正常销售的排班收窄到互不重叠的日子、用保底人身份约进一条 `AWAITING_HOST` 预约、确认它出现在保底人的 Unallocated 标签而不是 Upcoming、确认该标签下 Reschedule/Request reschedule/Edit location/Add guests 均为禁用状态（可见但灰置）；然后分别用手动重新分配（指定候选人）和自动重新分配（系统挑）把它转出去，确认数据库里 `status` 正确转回 `ACCEPTED`、`userId`/`reassignById`/`reassignReason` 正确写入、生成了 `AssignmentReason` 记录，且该预约从 Unallocated 消失、出现在新负责人的 Upcoming 里；也验证了 Cancel 对 Unallocated 预约仍然正常生效。自动重新分配那一步发现并修正了上面提到的 `eventType.hosts` vs `eventType.users` 的 bug；另外 Assignment 标签页的保底开关本身也曾有一个 Prisma 层的 bug（`fallbackHostUserId` 带 `@relation` 后不能作为裸标量字段出现在 `Prisma.EventTypeUpdateInput.data` 里，报 "Unknown argument fallbackHostUserId. Did you mean fallbackHostUser?"），已改为标准的 `connect`/`disconnect` 关系写法修复。
+
+提交记录（按顺序）：`b0034380b5` `d4d28da68c`（事件类型级保底指针 + Assignment 开关，替换旧的 per-host 方案）、`dd11a2abfa`（提交时分配保底 + `AWAITING_HOST`）、`1f5457215e`（slot 显示层同步）、`8b47310d8a` `42094689c2`（Unallocated 标签，前后端）、`9432adfeaf` `1c6f2a0173` `415187e15e` `624d9dec84`（重新分配重做，仓库层 + service + tRPC + 前端接线）、`287ac9c1b7`（修复保底开关的 Prisma 关系写法 bug）、`b85d24952b` `bed45388bd`（收窄 Unallocated 的行内操作到 Reassign + Cancel）。
 
 ### 4.2 预填字段的动态锁定（如 VIN）
 
