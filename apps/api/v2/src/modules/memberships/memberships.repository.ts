@@ -1,8 +1,7 @@
+import { MembershipRole } from "@calcom/platform-libraries";
+import { Injectable } from "@nestjs/common";
 import { PrismaReadService } from "@/modules/prisma/prisma-read.service";
 import { PrismaWriteService } from "@/modules/prisma/prisma-write.service";
-import { Injectable } from "@nestjs/common";
-
-import { MembershipRole } from "@calcom/platform-libraries";
 
 @Injectable()
 export class MembershipsRepository {
@@ -126,6 +125,17 @@ export class MembershipsRepository {
     });
 
     return membership;
+  }
+
+  async deleteMembership(teamId: number, userId: number) {
+    return this.dbWrite.prisma.membership.delete({
+      where: {
+        userId_teamId: {
+          userId,
+          teamId,
+        },
+      },
+    });
   }
 
   async getUserAdminOrOwnerTeamMembership(userId: number, teamId: number) {

@@ -1,10 +1,8 @@
-import { PrismaReadService } from "@/modules/prisma/prisma-read.service";
+import type { Webhook } from "@calcom/prisma/client";
 import { Injectable } from "@nestjs/common";
 import { v4 as uuidv4 } from "uuid";
-
-import type { Webhook } from "@calcom/prisma/client";
-
 import { PrismaWriteService } from "../prisma/prisma-write.service";
+import { PrismaReadService } from "@/modules/prisma/prisma-read.service";
 
 type WebhookInputData = Pick<
   Webhook,
@@ -13,7 +11,10 @@ type WebhookInputData = Pick<
 
 @Injectable()
 export class WebhooksRepository {
-  constructor(private readonly dbRead: PrismaReadService, private readonly dbWrite: PrismaWriteService) {}
+  constructor(
+    private readonly dbRead: PrismaReadService,
+    private readonly dbWrite: PrismaWriteService
+  ) {}
 
   async createUserWebhook(userId: number, data: WebhookInputData) {
     const id = uuidv4();
@@ -26,6 +27,13 @@ export class WebhooksRepository {
     const id = uuidv4();
     return this.dbWrite.prisma.webhook.create({
       data: { ...data, id, eventTypeId },
+    });
+  }
+
+  async createTeamWebhook(teamId: number, data: WebhookInputData) {
+    const id = uuidv4();
+    return this.dbWrite.prisma.webhook.create({
+      data: { ...data, id, teamId },
     });
   }
 
@@ -96,6 +104,12 @@ export class WebhooksRepository {
   async getEventTypeWebhookByUrl(eventTypeId: number, subscriberUrl: string) {
     return this.dbRead.prisma.webhook.findFirst({
       where: { eventTypeId, subscriberUrl },
+    });
+  }
+
+  async getTeamWebhookByUrl(teamId: number, subscriberUrl: string) {
+    return this.dbRead.prisma.webhook.findFirst({
+      where: { teamId, subscriberUrl },
     });
   }
 
