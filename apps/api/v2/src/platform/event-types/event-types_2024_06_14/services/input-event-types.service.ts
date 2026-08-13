@@ -8,6 +8,7 @@ import {
 } from "@calcom/platform-libraries/event-types";
 import {
   CreateEventTypeInput_2024_06_14,
+  CreateTeamEventTypeInput_2024_06_14,
   DestinationCalendar_2024_06_14,
   InputBookingField_2024_06_14,
   OutputUnknownLocation_2024_06_14,
@@ -16,6 +17,7 @@ import {
 } from "@calcom/platform-types";
 import { BookerLayouts } from "@calcom/prisma/zod-utils";
 import { BadRequestException, Injectable } from "@nestjs/common";
+import { UserWithProfile } from "@/modules/users/users.repository";
 import { ConnectedCalendarsData } from "@/platform/calendars/outputs/connected-calendars.output";
 import { CalendarsService } from "@/platform/calendars/services/calendars.service";
 import { EventTypesRepository_2024_06_14 } from "@/platform/event-types/event-types_2024_06_14/event-types.repository";
@@ -42,7 +44,6 @@ import {
   transformRecurrenceApiToInternal,
   transformSeatsApiToInternal,
 } from "@/platform/event-types/event-types_2024_06_14/transformers";
-import { UserWithProfile } from "@/modules/users/users.repository";
 
 interface ValidationContext {
   eventTypeId?: number;
@@ -82,6 +83,74 @@ export class InputEventTypesService_2024_06_14 {
     }
 
     return transformedBody;
+  }
+
+  // Team event types share every base field with individual ones (both extend BaseCreateEventTypeInput);
+  // the team-only fields (hosts, assignAllTeamMembers, schedulingType) aren't destructured by
+  // transformInputCreateEventType so they pass through untouched via its `...rest` spread. This was never
+  // wired up before (TeamsEventTypesService.createTeamEventType had zero callers anywhere in the repo),
+  // so team-only location kinds (attendeeDefined, organizersDefaultApp) haven't been exercised through
+  // transformInputLocations - keep `locations` optional at the call site until that's verified.
+  //
+  // Also note: `assignAllTeamMembers: true` alone does NOT get synced onto the Host table by
+  // createEventType/updateEventType - that sync only happens in the web app's own form-submission code
+  // (see git history: "make 'assign all team members' pure frontend"). Callers of this endpoint that want
+  // hosts populated must pass `hosts` explicitly.
+  async transformAndValidateCreateTeamEventTypeInput(
+    user: UserWithProfile,
+    inputEventType: CreateTeamEventTypeInput_2024_06_14
+  ) {
+    await this.validateInputLocations(
+      user,
+      inputEventType.locations as CreateEventTypeInput_2024_06_14["locations"]
+    );
+    const transformedBody = this.transformInputCreateEventType(
+      inputEventType as unknown as CreateEventTypeInput_2024_06_14
+    );
+
+    await this.validateEventTypeInputs({
+      seatsPerTimeSlot: transformedBody?.seatsPerTimeSlot || null,
+      locations: transformedBody.locations,
+      requiresConfirmation: transformedBody.requiresConfirmation,
+      eventName: transformedBody.eventName,
+    });
+
+    if (transformedBody.destinationCalendar) {
+      await this.validateInputDestinationCalendar(user.id, transformedBody.destinationCalendar);
+    }
+
+    if (transformedBody.useEventTypeDestinationCalendarEmail) {
+      await this.validateInputUseDestinationCalendarEmail(user.id);
+    }
+
+    return {
+      ...transformedBody,
+      hosts: this.transformInputHostsPriority(inputEventType.hosts),
+    };
+  }
+
+  // The API's `hosts[].priority` is the string label ("medium", ...) from the HostPriority enum, but
+  // `Host.priority` in the DB is the int it's stored as (see the reverse mapping in
+  // OutputTeamEventTypesService.getPriorityLabel, apps/api/v2/.../output-team-event-types.service.ts).
+  // Nothing transforms this before it reaches Prisma on this create-team-event-type path (confirmed by
+  // hitting it with a string priority and getting a PrismaClientValidationError), so it's done here.
+  private transformInputHostsPriority(hosts: CreateTeamEventTypeInput_2024_06_14["hosts"]) {
+    if (!hosts) {
+      return hosts;
+    }
+
+    const PRIORITY_LABEL_TO_INT: Record<string, number> = {
+      lowest: 0,
+      low: 1,
+      medium: 2,
+      high: 3,
+      highest: 4,
+    };
+
+    return hosts.map((host) => ({
+      ...host,
+      priority: host.priority ? PRIORITY_LABEL_TO_INT[host.priority] : undefined,
+    }));
   }
 
   async transformAndValidateUpdateEventTypeInput(

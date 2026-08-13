@@ -1,4 +1,5 @@
 import { SUCCESS_STATUS } from "@calcom/platform-constants";
+import type { CreateTeamEventTypeInput_2024_06_14 } from "@calcom/platform-types";
 import type { Team } from "@calcom/prisma/client";
 import { INestApplication } from "@nestjs/common";
 import { NestExpressApplication } from "@nestjs/platform-express";
@@ -35,6 +36,7 @@ describe("TeamsEventTypesController (e2e)", () => {
   let team: Team;
   let otherTeam: Team;
   let eventTypeId: number;
+  let createdEventTypeId: number | undefined;
   const eventSlug = `teams-event-types-${randomString()}`;
 
   let userRepositoryFixture: UserRepositoryFixture;
@@ -67,8 +69,13 @@ describe("TeamsEventTypesController (e2e)", () => {
     });
 
     // `user` is only added to `team`, not `otherTeam` - that gap is what exercises RolesGuard's denial path.
+    // OWNER (not just ADMIN) so this identity can also exercise POST: RolesGuard itself only requires
+    // TEAM_ADMIN, but eventType.create's *default* TeamPermissionSetting minimum role is OWNER
+    // (packages/features/teams/lib/teamPermissions.ts) - createEventType() enforces that separately,
+    // deeper inside TeamsEventTypesService.createTeamEventType, regardless of what RolesGuard already
+    // allowed through.
     await membershipRepositoryFixture.create({
-      role: "MEMBER",
+      role: "OWNER",
       user: { connect: { id: user.id } },
       team: { connect: { id: team.id } },
       accepted: true,
@@ -90,6 +97,9 @@ describe("TeamsEventTypesController (e2e)", () => {
   });
 
   afterAll(async () => {
+    if (createdEventTypeId) {
+      await eventTypesRepositoryFixture.delete(createdEventTypeId);
+    }
     await eventTypesRepositoryFixture.delete(eventTypeId);
     await teamRepositoryFixture.delete(team.id);
     await teamRepositoryFixture.delete(otherTeam.id);
@@ -129,5 +139,39 @@ describe("TeamsEventTypesController (e2e)", () => {
 
   it("returns 403 for a team the authenticated user is not a member of", () => {
     return request(app.getHttpServer()).get(`/v2/teams/${otherTeam.id}/event-types`).expect(403);
+  });
+
+  it("creates a team event type with explicit hosts", () => {
+    const createdSlug = `teams-event-types-created-${randomString()}`;
+
+    // `hosts` rather than `assignAllTeamMembers: true`: the latter is only synced onto the Host table by
+    // the web app's own form-submission logic (see git history: "make 'assign all team members' pure
+    // frontend"), not by createEventType/updateEventType themselves - confirmed by hitting this endpoint
+    // with assignAllTeamMembers alone and finding no Host row got created. Passing hosts explicitly, which
+    // is what the vehicle-delivery round-robin + fallback-host flow needs anyway (per-host priority), sidesteps
+    // that gap entirely.
+    return request(app.getHttpServer())
+      .post(`/v2/teams/${team.id}/event-types`)
+      .send({
+        title: "Vehicle Delivery",
+        slug: createdSlug,
+        description: "Created by teams-event-types.controller.e2e-spec.ts",
+        lengthInMinutes: 30,
+        schedulingType: "ROUND_ROBIN",
+        hosts: [{ userId: user.id, mandatory: false, priority: "medium" }],
+      } satisfies Partial<CreateTeamEventTypeInput_2024_06_14>)
+      .expect(201)
+      .then(async (res) => {
+        expect(res.body.status).toEqual(SUCCESS_STATUS);
+        expect(res.body.data.slug).toEqual(createdSlug);
+        expect(res.body.data.teamId).toEqual(team.id);
+        expect(res.body.data.schedulingType).toEqual("roundRobin");
+        createdEventTypeId = res.body.data.id;
+
+        const dbEventTypes = await eventTypesRepositoryFixture.getAllTeamEventTypes(team.id);
+        const dbEventType = dbEventTypes.find((eventType) => eventType.id === createdEventTypeId);
+        expect(dbEventType?.schedulingType).toEqual("ROUND_ROBIN");
+        expect(dbEventType?.hosts.some((host) => host.userId === user.id)).toBe(true);
+      });
   });
 });
