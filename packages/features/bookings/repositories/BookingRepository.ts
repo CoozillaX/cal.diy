@@ -75,7 +75,6 @@ export type ManagedEventCancellationResult = {
   status: BookingStatus;
 };
 
-
 type TeamBookingsParamsBase = {
   user: { id: number; email: string };
   teamId: number;
@@ -1727,6 +1726,8 @@ export class BookingRepository implements IBookingRepository {
         iCalSequence: true,
         eventTypeId: true,
         userId: true,
+        userPrimaryEmail: true,
+        destinationCalendar: true,
         attendees: {
           select: {
             name: true,
@@ -1748,6 +1749,22 @@ export class BookingRepository implements IBookingRepository {
             timeZone: true,
             locale: true,
             timeFormat: true,
+            destinationCalendar: true,
+          },
+        },
+        eventType: {
+          select: {
+            title: true,
+            teamId: true,
+            schedulingType: true,
+            recurringEvent: true,
+            seatsPerTimeSlot: true,
+            seatsShowAttendees: true,
+            hideOrganizerEmail: true,
+            customReplyToEmail: true,
+            hostGroups: {
+              select: { id: true },
+            },
           },
         },
         payment: {

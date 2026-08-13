@@ -24,6 +24,10 @@ export interface BookingUpdateData {
   cancellationReason?: string | null;
   cancelledBy?: string | null;
   iCalSequence?: number;
+  userId?: number;
+  userPrimaryEmail?: string | null;
+  reassignById?: number | null;
+  reassignReason?: string | null;
 }
 
 interface BookingWithReferences {
@@ -45,9 +49,7 @@ export interface IBookingRepository {
 
   update(params: { where: BookingWhereUniqueInput; data: BookingUpdateData }): Promise<Booking>;
 
-  findManyIncludeReferences(params: {
-    where: BookingWhereInput;
-  }): Promise<BookingWithReferences[]>;
+  findManyIncludeReferences(params: { where: BookingWhereInput }): Promise<BookingWithReferences[]>;
 
   getBookingForCalEventBuilderFromUid(bookingUid: string): Promise<BookingForCalEventBuilder | null>;
 }
