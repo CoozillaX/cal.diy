@@ -87,17 +87,14 @@ const loadUsersByEventType = async (eventType: EventType): Promise<NewBookingEve
     eventType,
     hosts: hosts ?? fallbackHosts,
   });
-  return matchingHosts.map(
-    ({ user, isFixed, priority, weight, ignoreTimeConflicts, createdAt, groupId }) => ({
-      ...user,
-      isFixed,
-      priority,
-      weight,
-      ignoreTimeConflicts,
-      createdAt,
-      groupId,
-    })
-  );
+  return matchingHosts.map(({ user, isFixed, priority, weight, createdAt, groupId }) => ({
+    ...user,
+    isFixed,
+    priority,
+    weight,
+    createdAt,
+    groupId,
+  }));
 };
 
 const loadDynamicUsers = async (dynamicUserList: string[], currentOrgDomain: string | null) => {

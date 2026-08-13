@@ -139,6 +139,7 @@ const commons = {
   interfaceLanguage: null,
   customReplyToEmail: null,
   restrictionScheduleId: null,
+  fallbackHostUserId: null,
   useBookerTimezone: false,
   profileId: null,
   profile: null,

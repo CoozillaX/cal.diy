@@ -692,6 +692,7 @@ export class EventTypeRepository implements IEventTypesRepository {
       },
       restrictionScheduleId: true,
       useBookerTimezone: true,
+      fallbackHostUserId: true,
       users: {
         select: userSelect,
       },
@@ -720,7 +721,6 @@ export class EventTypeRepository implements IEventTypesRepository {
           userId: true,
           priority: true,
           weight: true,
-          ignoreTimeConflicts: true,
           scheduleId: true,
           groupId: true,
           location: {
@@ -973,6 +973,7 @@ export class EventTypeRepository implements IEventTypesRepository {
       },
       restrictionScheduleId: true,
       useBookerTimezone: true,
+      fallbackHostUserId: true,
       users: {
         select: userSelect,
       },
@@ -1002,7 +1003,6 @@ export class EventTypeRepository implements IEventTypesRepository {
           groupId: true,
           priority: true,
           weight: true,
-          ignoreTimeConflicts: true,
           scheduleId: true,
           location: {
             select: {
@@ -1283,6 +1283,7 @@ export class EventTypeRepository implements IEventTypesRepository {
         restrictionScheduleId: true,
         useBookerTimezone: true,
         rrHostSubsetEnabled: true,
+        fallbackHostUserId: true,
         hostGroups: {
           select: {
             id: true,
@@ -1339,7 +1340,6 @@ export class EventTypeRepository implements IEventTypesRepository {
             createdAt: true,
             weight: true,
             priority: true,
-            ignoreTimeConflicts: true,
             groupId: true,
             user: {
               select: {
@@ -1395,6 +1395,7 @@ export class EventTypeRepository implements IEventTypesRepository {
         seatsPerTimeSlot: true,
         bookingLimits: true,
         useEventLevelSelectedCalendars: true,
+        fallbackHostUserId: true,
         parent: {
           select: {
             team: {
@@ -1421,7 +1422,6 @@ export class EventTypeRepository implements IEventTypesRepository {
                 id: true,
               },
             },
-            ignoreTimeConflicts: true,
             schedule: {
               select: {
                 availability: {

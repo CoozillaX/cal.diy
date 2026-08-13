@@ -36,7 +36,6 @@ export type IsFixedAwareUser = User & {
   organization?: { slug: string };
   priority?: number;
   weight?: number;
-  ignoreTimeConflicts?: boolean | null;
   userLevelSelectedCalendars: SelectedCalendar[];
   allSelectedCalendars: SelectedCalendar[];
   groupId?: string | null;

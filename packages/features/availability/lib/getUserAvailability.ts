@@ -666,19 +666,8 @@ export class UserAvailabilityService {
       end: dayjs(busy.end),
     }));
 
-    // A designated fallback host (e.g. a store manager who must always be bookable as a last
-    // resort in round-robin) shows their full working-hours window as available here too -
-    // mirrors the equivalent skip in ensureAvailableUsers.ts, which is what actually matters at
-    // booking-commit time; this is what makes that slot visible to book in the first place.
-    const hostIgnoresTimeConflicts =
-      eventType?.hosts?.some((host) => host.user.id === user.id && host.ignoreTimeConflicts) ?? false;
-
-    const dateRangesInWhichUserIsAvailable = hostIgnoresTimeConflicts
-      ? dateRanges
-      : subtract(dateRanges, formattedBusyTimes);
-    const dateRangesInWhichUserIsAvailableWithoutOOO = hostIgnoresTimeConflicts
-      ? oooExcludedDateRanges
-      : subtract(oooExcludedDateRanges, formattedBusyTimes);
+    const dateRangesInWhichUserIsAvailable = subtract(dateRanges, formattedBusyTimes);
+    const dateRangesInWhichUserIsAvailableWithoutOOO = subtract(oooExcludedDateRanges, formattedBusyTimes);
 
     const result = {
       busy: detailedBusyTimes,

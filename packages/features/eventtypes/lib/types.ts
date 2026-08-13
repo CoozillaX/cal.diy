@@ -54,7 +54,6 @@ export type Host = {
   scheduleId?: number | null;
   groupId: string | null;
   location?: HostLocation | null;
-  ignoreTimeConflicts?: boolean;
 };
 
 export type TeamMember = {
@@ -166,6 +165,9 @@ export type FormValues = {
     id: string;
     name: string;
   }[];
+  // Single, event-type-level last-resort assignee - decoupled from `hosts` entirely, only used
+  // when round-robin assignment finds no available host among the configured hosts.
+  fallbackHostUserId: number | null;
   bookingFields: z.infer<typeof eventTypeBookingFields>;
   availability?: AvailabilityOption;
   bookerLayouts: BookerLayoutSettings;
@@ -254,7 +256,6 @@ export type HostInput = {
   scheduleId?: number | null;
   groupId?: string | null;
   location?: HostLocationInput | null;
-  ignoreTimeConflicts?: boolean | null;
 };
 
 export type HostGroupInput = {
@@ -421,6 +422,7 @@ export type EventTypeUpdateInput = {
   multiplePrivateLinks?: (string | HashedLinkInput)[];
   hostGroups?: HostGroupInput[];
   enablePerHostLocations?: boolean;
+  fallbackHostUserId?: number | null;
 };
 
 export type TabMap = {

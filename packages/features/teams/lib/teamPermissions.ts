@@ -5,9 +5,11 @@ interface TeamPermissionCatalogEntry {
   category: "event_types" | "bookings";
   defaultMinimumRole: MembershipRole;
   /**
-   * Reassignment has no live handler in this app (the web UI's reassign mutations are no-ops and
-   * the only working implementation lives in the separate apps/api/v2 service) - it's listed here
-   * for forward-compatibility, but no call site currently checks it.
+   * Reassignment itself has no live handler in this app yet (the web UI's reassign mutations are
+   * no-ops - see the round-robin reassignment rebuild). This key is already checked by one real
+   * call site (gating who can be configured as an event type's fallback host, in
+   * eventTypes/heavy/update.handler.ts) but `enforced` stays false until reassignment itself
+   * respects it too.
    */
   enforced: boolean;
 }

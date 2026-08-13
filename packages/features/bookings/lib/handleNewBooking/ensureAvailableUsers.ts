@@ -238,16 +238,11 @@ const _ensureAvailableUsers = async (
     }
 
     try {
-      // A designated fallback host (e.g. a store manager who must always be bookable as a last
-      // resort in round-robin) skips the busy-time conflict check entirely - they're still
-      // constrained to their own schedule/working-hours window via the dateRanges checks above.
-      const foundConflict =
-        !user.ignoreTimeConflicts &&
-        checkForConflicts({
-          busy: bufferedBusyTimes,
-          time: startDateTimeUtc,
-          eventLength: duration,
-        });
+      const foundConflict = checkForConflicts({
+        busy: bufferedBusyTimes,
+        time: startDateTimeUtc,
+        eventLength: duration,
+      });
       if (!foundConflict) {
         availableUsers.push({ ...user, availabilityData: userAvailability });
       }

@@ -7,6 +7,8 @@ import { HashedLinkService } from "@calcom/features/hashedLink/lib/service/Hashe
 import { MembershipRepository } from "@calcom/features/membership/repositories/MembershipRepository";
 import { ScheduleRepository } from "@calcom/features/schedules/repositories/ScheduleRepository";
 import tasker from "@calcom/features/tasker";
+import { getTeamPermissionSettingService } from "@calcom/features/teams/di/TeamPermissionSettingService.container";
+import { TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import { getTranslation } from "@calcom/i18n/server";
 import { validateIntervalLimitOrder } from "@calcom/lib/intervalLimits/validateIntervalLimitOrder";
 import logger from "@calcom/lib/logger";
@@ -92,6 +94,7 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
     calVideoSettings,
     hostGroups,
     enablePerHostLocations,
+    fallbackHostUserId,
     ...rest
   } = input;
 
@@ -116,7 +119,6 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
           priority: true,
           weight: true,
           isFixed: true,
-          ignoreTimeConflicts: true,
         },
       },
       calVideoSettings: {
@@ -235,6 +237,7 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
     seatsPerTimeSlot,
     maxLeadThreshold: isLoadBalancingDisabled ? null : rest.maxLeadThreshold,
     ...(enablePerHostLocations !== undefined && { enablePerHostLocations }),
+    ...(fallbackHostUserId !== undefined && { fallbackHostUserId }),
   };
   data.locations = locations ?? undefined;
 
@@ -454,6 +457,35 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
 
   let hostLocationDeletions: { userId: number; eventTypeId: number }[] = [];
 
+  if (teamId && fallbackHostUserId) {
+    // The fallback host is deliberately not required to already be a configured host - they're
+    // decoupled from the `hosts` list entirely (see EventType.fallbackHostUserId) - but they must
+    // still be an accepted team member who meets the team's configured booking.reassign minimum
+    // role, since that's the same role tier that will later be allowed to reassign their bookings
+    // away.
+    const fallbackHostMembership = await membershipRepo.findUniqueByUserIdAndTeamId({
+      userId: fallbackHostUserId,
+      teamId,
+    });
+    if (!fallbackHostMembership?.accepted) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "The fallback host must be an accepted member of this team",
+      });
+    }
+    const fallbackHostHasReassignPermission = await getTeamPermissionSettingService().hasPermission({
+      teamId,
+      userId: fallbackHostUserId,
+      permissionKey: TEAM_PERMISSIONS.BOOKING_REASSIGN,
+    });
+    if (!fallbackHostHasReassignPermission) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "The fallback host must meet this team's configured minimum role for reassigning bookings",
+      });
+    }
+  }
+
   if (teamId && hosts) {
     // check if all hosts can be assigned (memberships that have accepted invite)
     const teamMemberIds = await membershipRepo.listAcceptedTeamMemberIds({ teamId });
@@ -489,7 +521,6 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
           weight: number;
           groupId: string | null | undefined;
           scheduleId?: number | null | undefined;
-          ignoreTimeConflicts: boolean;
           location?: {
             create: {
               type: string;
@@ -506,7 +537,6 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
           weight: host.weight ?? 100,
           groupId: host.groupId,
           scheduleId: host.scheduleId ?? null,
-          ignoreTimeConflicts: host.ignoreTimeConflicts ?? false,
         };
         if (host.location) {
           hostData.location = {
@@ -528,7 +558,6 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
           weight: number;
           scheduleId: number | null | undefined;
           groupId: string | null | undefined;
-          ignoreTimeConflicts: boolean;
           location?: {
             upsert: {
               create: {
@@ -553,7 +582,6 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
           weight: host.weight ?? 100,
           scheduleId: host.scheduleId === undefined ? undefined : host.scheduleId,
           groupId: host.groupId,
-          ignoreTimeConflicts: host.ignoreTimeConflicts ?? false,
         };
         if (host.location) {
           updateData.location = {

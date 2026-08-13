@@ -59,28 +59,23 @@ enum CreationSource {
 }
 
 model Host {
-  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId              Int
-  eventType           EventType     @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
-  eventTypeId         Int
-  isFixed             Boolean       @default(false)
-  priority            Int?
-  weight              Int?
-  // When true, round-robin availability checks skip this host's own busy-time conflicts (their
-  // schedule/working-hours window is still respected). For a designated fallback host (e.g. a
-  // store manager who must always be bookable as a last resort) who would otherwise be excluded
-  // just because they already have an overlapping booking.
-  ignoreTimeConflicts Boolean       @default(false)
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId           Int
+  eventType        EventType     @relation(fields: [eventTypeId], references: [id], onDelete: Cascade)
+  eventTypeId      Int
+  isFixed          Boolean       @default(false)
+  priority         Int?
+  weight           Int?
   // weightAdjustment is deprecated. We not calculate the calibratino value on the spot. Plan to drop this column.
-  weightAdjustment    Int?
-  schedule            Schedule?     @relation(fields: [scheduleId], references: [id])
-  scheduleId          Int?
-  createdAt           DateTime      @default(now())
-  group               HostGroup?    @relation(fields: [groupId], references: [id])
-  groupId             String?
-  memberId            Int?
-  member              Membership?   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  location            HostLocation?
+  weightAdjustment Int?
+  schedule         Schedule?     @relation(fields: [scheduleId], references: [id])
+  scheduleId       Int?
+  createdAt        DateTime      @default(now())
+  group            HostGroup?    @relation(fields: [groupId], references: [id])
+  groupId          String?
+  memberId         Int?
+  member           Membership?   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  location         HostLocation?
 
   @@id([userId, eventTypeId])
   @@index([memberId])
@@ -287,6 +282,12 @@ model EventType {
   restrictionSchedule   Schedule?   @relation("restrictionSchedule", fields: [restrictionScheduleId], references: [id])
   hostGroups            HostGroup[]
 
+  // Single, event-type-level last-resort assignee - decoupled from the `hosts` list entirely.
+  // Only used when round-robin assignment finds no available host among the configured hosts;
+  // never counted as a normal round-robin participant.
+  fallbackHostUserId Int?
+  fallbackHostUser   User? @relation("EventTypeFallbackHost", fields: [fallbackHostUserId], references: [id], onDelete: SetNull)
+
   bookingRequiresAuthentication Boolean                        @default(false)
   rrHostSubsetEnabled           Boolean                        @default(false)
   requiresCancellationReason    CancellationReasonRequirement? @default(MANDATORY_HOST_ONLY)
@@ -308,6 +309,7 @@ model EventType {
   @@index([parentId])
   @@index([parentId, teamId])
   @@index([restrictionScheduleId])
+  @@index([fallbackHostUserId])
 }
 
 model Credential {
@@ -459,23 +461,24 @@ model User {
   requiresBookerEmailVerification Boolean? @default(false)
 
   /// @zod.import(["import { userMetadata } from '../../zod-utils'"]).custom.use(userMetadata)
-  metadata           Json?
-  verified           Boolean?           @default(false)
-  role               UserPermissionRole @default(USER)
-  apiKeys            ApiKey[]
-  accounts           Account[]
-  sessions           Session[]
-  Feedback           Feedback[]
-  ownedEventTypes    EventType[]        @relation("owner")
-  verifiedNumbers    VerifiedNumber[]
-  verifiedEmails     VerifiedEmail[]
-  hosts              Host[]
+  metadata                  Json?
+  verified                  Boolean?           @default(false)
+  role                      UserPermissionRole @default(USER)
+  apiKeys                   ApiKey[]
+  accounts                  Account[]
+  sessions                  Session[]
+  Feedback                  Feedback[]
+  ownedEventTypes           EventType[]        @relation("owner")
+  fallbackHostForEventTypes EventType[]        @relation("EventTypeFallbackHost")
+  verifiedNumbers           VerifiedNumber[]
+  verifiedEmails            VerifiedEmail[]
+  hosts                     Host[]
   // organizationId is deprecated. Instead, rely on the Profile to search profiles by organizationId and then get user from the profile.
-  organizationId     Int?
-  organization       Team?              @relation("scope", fields: [organizationId], references: [id], onDelete: SetNull)
-  accessCodes        AccessCode[]
-  bookingRedirects   OutOfOfficeEntry[]
-  bookingRedirectsTo OutOfOfficeEntry[] @relation(name: "toUser")
+  organizationId            Int?
+  organization              Team?              @relation("scope", fields: [organizationId], references: [id], onDelete: SetNull)
+  accessCodes               AccessCode[]
+  bookingRedirects          OutOfOfficeEntry[]
+  bookingRedirectsTo        OutOfOfficeEntry[] @relation(name: "toUser")
 
   // Used to lock the user account
   locked                         Boolean                       @default(false)
