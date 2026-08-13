@@ -237,9 +237,20 @@ export const updateHandler = async ({ ctx, input }: UpdateOptions) => {
     seatsPerTimeSlot,
     maxLeadThreshold: isLoadBalancingDisabled ? null : rest.maxLeadThreshold,
     ...(enablePerHostLocations !== undefined && { enablePerHostLocations }),
-    ...(fallbackHostUserId !== undefined && { fallbackHostUserId }),
   };
   data.locations = locations ?? undefined;
+
+  // fallbackHostUserId has a @relation to User, so Prisma's checked update input only exposes the
+  // relation field, not the raw FK scalar - same connect/disconnect pattern as schedule/restrictionSchedule above.
+  if (fallbackHostUserId) {
+    data.fallbackHostUser = {
+      connect: { id: fallbackHostUserId },
+    };
+  } else if (fallbackHostUserId === null) {
+    data.fallbackHostUser = {
+      disconnect: true,
+    };
+  }
 
   if (periodType) {
     data.periodType = handlePeriodType(periodType);
