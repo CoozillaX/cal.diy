@@ -678,6 +678,70 @@ export class AvailableSlotsService {
 
     return startTimeMin.isAfter(startTime) ? startTimeMin.tz(timeZone) : startTime;
   }
+  /**
+   * The event type's fallback host (EventType.fallbackHostUserId) is deliberately not part of
+   * `hosts` (see resolveFallbackHost.ts, which makes the equivalent call at booking-commit
+   * time) - without this, a slot where every real host is busy would never show up as bookable
+   * at all, so the fallback host could never actually be reached through the calendar UI.
+   *
+   * Computed the same lightweight way as the restriction-schedule check just below - raw
+   * schedule via buildDateRanges, no calendar/booking busy-time subtraction at all (`busy: []`),
+   * since the fallback host is meant to be shown as bookable whenever a real host isn't,
+   * regardless of their own conflicts.
+   */
+  private async getFallbackHostAvailabilityEntry(
+    eventType: { fallbackHostUserId?: number | null },
+    startTime: Dayjs,
+    endTime: Dayjs
+  ) {
+    if (!eventType.fallbackHostUserId) {
+      return null;
+    }
+
+    const scheduleRepo = this.dependencies.scheduleRepo;
+    let scheduleId: number;
+    try {
+      scheduleId = await scheduleRepo.getDefaultScheduleId(eventType.fallbackHostUserId);
+    } catch {
+      return null;
+    }
+
+    const schedule = await scheduleRepo.findScheduleByIdForBuildDateRanges({ scheduleId });
+    if (!schedule) {
+      return null;
+    }
+
+    const isDefaultSchedule = schedule.user.defaultScheduleId === schedule.id;
+    const travelSchedules = isDefaultSchedule
+      ? schedule.user.travelSchedules.map((travelSchedule) => ({
+          startDate: dayjs(travelSchedule.startDate),
+          endDate: travelSchedule.endDate ? dayjs(travelSchedule.endDate) : undefined,
+          timeZone: travelSchedule.timeZone,
+        }))
+      : [];
+
+    // No `outOfOffice` passed - dateRanges/oooExcludedDateRanges come back identical, i.e.
+    // purely schedule-derived.
+    const { dateRanges } = buildDateRanges({
+      availability: schedule.availability,
+      timeZone: schedule.timeZone ?? "UTC",
+      dateFrom: startTime,
+      dateTo: endTime,
+      travelSchedules,
+    });
+
+    return {
+      timeZone: schedule.timeZone ?? "UTC",
+      dateRanges,
+      oooExcludedDateRanges: dateRanges,
+      busy: [],
+      // groupId stays null so getAggregatedAvailability unions this into the same default RR
+      // group instead of intersecting it as its own separate group.
+      user: { isFixed: false, groupId: null },
+      datesOutOfOffice: undefined,
+    };
+  }
+
   private async calculateHostsAndAvailabilities({
     input,
     eventType,
@@ -848,6 +912,20 @@ export class AvailableSlotsService {
         };
       }
     );
+
+    const fallbackHostAvailability = await this.getFallbackHostAvailabilityEntry(
+      eventType,
+      startTime,
+      endTime
+    );
+    if (fallbackHostAvailability) {
+      // The real per-user entries carry a much richer `user` (credentials, bookings, etc.) that
+      // nothing downstream of getAggregatedAvailability actually reads off this array - only
+      // isFixed/groupId matter for aggregation, both of which this minimal entry does provide.
+      // The cast goes through `unknown` because the two `user` shapes don't structurally
+      // overlap enough for TypeScript to allow a direct assertion.
+      allUsersAvailability.push(fallbackHostAvailability as unknown as (typeof allUsersAvailability)[number]);
+    }
 
     return {
       allUsersAvailability,
