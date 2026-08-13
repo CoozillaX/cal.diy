@@ -1,19 +1,17 @@
-import { describe, it, expect } from "vitest";
-
 import { BookingStatus, SchedulingType } from "@calcom/prisma/enums";
-
+import { describe, expect, it } from "vitest";
 import {
-  getPendingActions,
-  getCancelEventAction,
-  getVideoOptionsActions,
-  getEditEventActions,
-  getAfterEventActions,
-  shouldShowPendingActions,
-  shouldShowEditActions,
-  shouldShowRecurringCancelAction,
-  isActionDisabled,
-  getActionLabel,
   type BookingActionContext,
+  getActionLabel,
+  getAfterEventActions,
+  getCancelEventAction,
+  getEditEventActions,
+  getPendingActions,
+  getVideoOptionsActions,
+  isActionDisabled,
+  shouldShowEditActions,
+  shouldShowPendingActions,
+  shouldShowRecurringCancelAction,
 } from "./bookingActions";
 
 const mockT = (key: string) => key;
@@ -680,6 +678,38 @@ describe("Booking Actions", () => {
       it("should be disabled for rejected bookings", () => {
         const context = createMockContext({ isRejected: true });
         expect(isActionDisabled("reschedule_request", context)).toBe(true);
+      });
+    });
+
+    describe("reschedule/reschedule_request actions for unallocated (AWAITING_HOST) bookings", () => {
+      it("should disable reschedule for a booking with no confirmed host yet", () => {
+        const context = createMockContext({
+          booking: { ...createMockContext().booking, status: BookingStatus.AWAITING_HOST },
+        });
+        expect(isActionDisabled("reschedule", context)).toBe(true);
+      });
+
+      it("should disable reschedule_request for a booking with no confirmed host yet", () => {
+        const context = createMockContext({
+          booking: { ...createMockContext().booking, status: BookingStatus.AWAITING_HOST },
+        });
+        expect(isActionDisabled("reschedule_request", context)).toBe(true);
+      });
+
+      it("should not disable reassign or cancel for a booking with no confirmed host yet", () => {
+        const context = createMockContext({
+          booking: {
+            ...createMockContext().booking,
+            status: BookingStatus.AWAITING_HOST,
+            eventType: {
+              ...createMockContext().booking.eventType,
+              schedulingType: SchedulingType.ROUND_ROBIN,
+              hostGroups: [],
+            },
+          },
+        });
+        expect(isActionDisabled("reassign", context)).toBe(false);
+        expect(isActionDisabled("cancel", context)).toBe(false);
       });
     });
   });

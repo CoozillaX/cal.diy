@@ -1,7 +1,6 @@
 import { isWithinMinimumRescheduleNotice } from "@calcom/features/bookings/lib/reschedule/isWithinMinimumRescheduleNotice";
 import { BookingStatus, SchedulingType } from "@calcom/prisma/enums";
 import type { ActionType } from "@calcom/ui/components/table";
-
 import type { BookingItemProps } from "../types";
 
 export interface BookingActionContext {
@@ -95,14 +94,7 @@ export function getVideoOptionsActions(context: BookingActionContext): ActionTyp
 }
 
 export function getEditEventActions(context: BookingActionContext): ActionType[] {
-  const {
-    booking,
-    isBookingInPast,
-    isDisabledRescheduling,
-    getSeatReferenceUid,
-    isAttendee,
-    t,
-  } = context;
+  const { booking, isBookingInPast, isDisabledRescheduling, getSeatReferenceUid, isAttendee, t } = context;
   const seatReferenceUid = getSeatReferenceUid();
 
   const isReassignableRoundRobin =
@@ -239,7 +231,7 @@ export function isActionDisabled(actionId: string, context: BookingActionContext
 
   switch (actionId) {
     case "reschedule":
-    case "reschedule_request":
+    case "reschedule_request": {
       // Only apply minimum reschedule notice restriction if user is NOT the organizer
       // If user is an attendee (or not authenticated), apply the restriction
       const isUserOrganizer =
@@ -256,10 +248,15 @@ export function isActionDisabled(actionId: string, context: BookingActionContext
       return (
         isCancelled ||
         isRejected ||
+        // Unallocated bookings have no confirmed host yet - moving the time doesn't fix that,
+        // and could just recreate the same "nobody available" problem at a different slot.
+        // Reassign (or cancel) is the only path that actually resolves an unallocated booking.
+        booking.status === BookingStatus.AWAITING_HOST ||
         (isBookingInPast && !booking.eventType.allowReschedulingPastBookings) ||
         isDisabledRescheduling ||
         isWithinMinimumNotice
       );
+    }
     case "cancel":
       return isDisabledCancelling || isBookingInPast || isCancelled || isRejected;
     case "view_recordings":
