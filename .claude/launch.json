@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api-v2",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "cd apps/api/v2 && yarn copy-swagger-module && yarn start --watch"],
+      "port": 5555
+    }
+  ]
+}

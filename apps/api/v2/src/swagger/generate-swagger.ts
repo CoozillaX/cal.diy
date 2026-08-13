@@ -1,16 +1,16 @@
-import { getEnv } from "@/env";
 import { Logger } from "@nestjs/common";
 import type { NestExpressApplication } from "@nestjs/platform-express";
-import { SwaggerModule, DocumentBuilder } from "@nestjs/swagger";
+import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import type {
+  OperationObject,
   PathItemObject,
   PathsObject,
-  OperationObject,
 } from "@nestjs/swagger/dist/interfaces/open-api-spec.interface";
+import { getEnv } from "@/env";
 import "dotenv/config";
+import { spawnSync } from "node:child_process";
 import * as fs from "node:fs";
 import type { Server } from "node:http";
-import { spawnSync } from "node:child_process";
 import { createRequire } from "node:module";
 
 const nodeRequire = createRequire(__filename);
@@ -30,9 +30,18 @@ export async function generateSwaggerForApp(app: NestExpressApplication<Server>)
   const stringifiedContents = JSON.stringify(document, null, 2);
 
   if (fs.existsSync(docsOutputFile) && getEnv("NODE_ENV") === "development") {
-    fs.unlinkSync(docsOutputFile);
-    fs.writeFileSync(docsOutputFile, stringifiedContents, { encoding: "utf8" });
-    spawnSync("node", [biomeBin, "format", "--write", docsOutputFile], { stdio: "inherit" });
+    // Only touch the file when the document actually changed. `nest start --watch`'s file watcher covers
+    // this output path, so an unconditional write-every-boot here retriggers a recompile on its own write,
+    // which retriggers this function again, forever - `yarn dev`/`start --watch` never settles. Comparing
+    // parsed JSON (not raw strings) avoids false positives from formatting-only differences between this
+    // unformatted stringify and the biome-formatted file already on disk.
+    const hasChanged = !isSameJsonContent(fs.readFileSync(docsOutputFile, "utf8"), stringifiedContents);
+
+    if (hasChanged) {
+      fs.unlinkSync(docsOutputFile);
+      fs.writeFileSync(docsOutputFile, stringifiedContents, { encoding: "utf8" });
+      spawnSync("node", [biomeBin, "format", "--write", docsOutputFile], { stdio: "inherit" });
+    }
   }
 
   if (!process.env.DOCS_URL) {
@@ -98,4 +107,12 @@ function customTagSort(a: string, b: string): number {
 
 function isOperationObject(obj: any): obj is OperationObject {
   return obj && typeof obj === "object" && "tags" in obj;
+}
+
+function isSameJsonContent(a: string, b: string): boolean {
+  try {
+    return JSON.stringify(JSON.parse(a)) === JSON.stringify(JSON.parse(b));
+  } catch {
+    return false;
+  }
 }
