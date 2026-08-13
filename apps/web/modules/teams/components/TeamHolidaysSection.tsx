@@ -10,6 +10,7 @@ import { Icon } from "@calcom/ui/components/icon";
 import { SkeletonText } from "@calcom/ui/components/skeleton";
 import { showToast } from "@calcom/ui/components/toast";
 import { useMemo } from "react";
+import type { CSSObjectWithLabel } from "react-select";
 
 type HolidayWithStatus = RouterOutputs["viewer"]["teams"]["holidaySettings"]["holidays"][number];
 type CountryOption = { value: string; label: string };
@@ -155,6 +156,9 @@ const TeamHolidaysSection = ({ teamId, canManage }: { teamId: number; canManage:
               })
             }
             options={countryOptions}
+            menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+            menuPlacement="auto"
+            styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) as CSSObjectWithLabel }}
           />
         )}
       </div>
