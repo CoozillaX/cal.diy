@@ -52,7 +52,7 @@ describe("WebhooksController (e2e)", () => {
     });
 
     otherWebhook = await webhookRepositoryFixture.create({
-      id: "2mdfnn2",
+      id: `2mdfnn2-${randomString()}`,
       subscriberUrl: "https://example.com",
       eventTriggers: ["BOOKING_CREATED", "BOOKING_RESCHEDULED", "BOOKING_CANCELLED"],
       active: true,
@@ -65,9 +65,12 @@ describe("WebhooksController (e2e)", () => {
   });
 
   afterAll(async () => {
-    userRepositoryFixture.deleteByEmail(user.email);
-    userRepositoryFixture.deleteByEmail(otherUser.email);
-    webhookRepositoryFixture.delete(otherWebhook.id);
+    // These were previously fire-and-forget (no await): app.close() could tear down the DB connection
+    // before they landed, intermittently leaving `otherWebhook` (with a hardcoded, non-random id) behind
+    // to collide with the next run's `webhookRepositoryFixture.create` above.
+    await userRepositoryFixture.deleteByEmail(user.email);
+    await userRepositoryFixture.deleteByEmail(otherUser.email);
+    await webhookRepositoryFixture.delete(otherWebhook.id);
     await app.close();
   });
 
