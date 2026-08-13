@@ -1,9 +1,8 @@
+import { ZTextFilterValue } from "@calcom/features/data-table/lib/types";
 import { z } from "zod";
 
-import { ZTextFilterValue } from "@calcom/features/data-table/lib/types";
-
 // Note: offset has .default(0), so input type has it optional but output type has it required
-type BookingStatus = "upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed";
+type BookingStatus = "unallocated" | "upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed";
 
 type TGetInputSchemaFilters = {
   teamIds?: number[];
@@ -47,8 +46,11 @@ export const ZGetInputSchema: z.ZodType<TGetInputSchema, z.ZodTypeDef, TGetInput
     teamIds: z.number().array().optional(),
     userIds: z.number().array().optional(),
     // Support both singular 'status' (for API v2) and plural 'statuses' (/bookings page)
-    status: z.enum(["upcoming", "recurring", "past", "cancelled", "unconfirmed"]).optional(),
-    statuses: z.enum(["upcoming", "recurring", "past", "cancelled", "unconfirmed"]).array().optional(),
+    status: z.enum(["unallocated", "upcoming", "recurring", "past", "cancelled", "unconfirmed"]).optional(),
+    statuses: z
+      .enum(["unallocated", "upcoming", "recurring", "past", "cancelled", "unconfirmed"])
+      .array()
+      .optional(),
     eventTypeIds: z.number().array().optional(),
     attendeeEmail: z.union([z.string(), ZTextFilterValue]).optional(),
     attendeeName: z.union([z.string(), ZTextFilterValue]).optional(),

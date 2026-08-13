@@ -70,7 +70,7 @@ type GetOptions = {
   input: TGetInputSchema;
 };
 
-type InputByStatus = "upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed";
+type InputByStatus = "unallocated" | "upcoming" | "recurring" | "past" | "cancelled" | "unconfirmed";
 
 const log = logger.getSubLogger({ prefix: ["bookings.get"] });
 
@@ -1041,6 +1041,10 @@ function addStatusesQueryFilters(query: BookingsUnionQuery, statuses: InputBySta
     return query.where(({ eb, or, and }) =>
       or(
         statuses.map((status) => {
+          if (status === "unallocated") {
+            return and([eb("Booking.endTime", ">=", new Date()), eb("Booking.status", "=", "awaiting_host")]);
+          }
+
           if (status === "upcoming") {
             return and([
               eb("Booking.endTime", ">=", new Date()),
@@ -1048,7 +1052,8 @@ function addStatusesQueryFilters(query: BookingsUnionQuery, statuses: InputBySta
                 and([eb("Booking.recurringEventId", "is not", null), eb("Booking.status", "=", "accepted")]),
                 and([
                   eb("Booking.recurringEventId", "is", null),
-                  eb("Booking.status", "not in", ["cancelled", "rejected"]),
+                  // awaiting_host bookings live under the separate "unallocated" tab instead.
+                  eb("Booking.status", "not in", ["cancelled", "rejected", "awaiting_host"]),
                 ]),
               ]),
             ]);
@@ -1162,6 +1167,7 @@ function getOrderBy(
   }
 ): { key: "startTime" | "endTime" | "createdAt" | "updatedAt"; order: "desc" | "asc" } {
   const bookingListingOrderby = {
+    unallocated: { startTime: "asc" },
     upcoming: { startTime: "asc" },
     recurring: { startTime: "asc" },
     past: { startTime: "desc" },
