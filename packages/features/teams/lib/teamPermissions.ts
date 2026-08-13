@@ -4,13 +4,8 @@ interface TeamPermissionCatalogEntry {
   key: string;
   category: "event_types" | "bookings";
   defaultMinimumRole: MembershipRole;
-  /**
-   * Reassignment itself has no live handler in this app yet (the web UI's reassign mutations are
-   * no-ops - see the round-robin reassignment rebuild). This key is already checked by one real
-   * call site (gating who can be configured as an event type's fallback host, in
-   * eventTypes/heavy/update.handler.ts) but `enforced` stays false until reassignment itself
-   * respects it too.
-   */
+  /** Whether at least one real call site currently checks this permission (vs. catalog-only,
+   * forward-compatibility entries with nothing wired up yet). */
   enforced: boolean;
 }
 
@@ -107,7 +102,7 @@ export const TEAM_PERMISSION_CATALOG: (TeamPermissionCatalogEntry & { key: TeamP
     key: TEAM_PERMISSIONS.BOOKING_REASSIGN,
     category: "bookings",
     defaultMinimumRole: MembershipRole.ADMIN,
-    enforced: false,
+    enforced: true,
   },
 ];
 

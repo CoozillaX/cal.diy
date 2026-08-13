@@ -6,6 +6,7 @@ import { ZCreateInputSchema } from "./create.schema";
 import { ZDeleteInputSchema } from "./delete.schema";
 import { ZGetInputSchema } from "./get.schema";
 import { ZGetPermissionSettingsInputSchema } from "./getPermissionSettings.schema";
+import { ZGetRoundRobinHostsToReassignInputSchema } from "./getRoundRobinHostsToReassign.schema";
 import { ZHolidaySettingsInputSchema } from "./holidaySettings.schema";
 import { ZHolidayToggleInputSchema } from "./holidayToggle.schema";
 import { ZHolidayUpdateSettingsInputSchema } from "./holidayUpdateSettings.schema";
@@ -17,6 +18,8 @@ import { ZOOOCreateInputSchema } from "./oooCreate.schema";
 import { ZOOODeleteInputSchema } from "./oooDelete.schema";
 import { ZOOOListInputSchema } from "./oooList.schema";
 import { ZRemoveMemberInputSchema } from "./removeMember.schema";
+import { ZRoundRobinManualReassignInputSchema } from "./roundRobinManualReassign.schema";
+import { ZRoundRobinReassignInputSchema } from "./roundRobinReassign.schema";
 import { ZUpdateInputSchema } from "./update.schema";
 import { ZUpdatePermissionSettingsInputSchema } from "./updatePermissionSettings.schema";
 
@@ -172,5 +175,33 @@ export const teamsRouter = router({
       const { updatePermissionSettingsHandler } = await import("./updatePermissionSettings.handler");
 
       return updatePermissionSettingsHandler({ ctx, input });
+    }),
+
+  // Reassign dialog's candidate picker - round-robin hosts of the booking's event type eligible
+  // per the team's configured booking.reassign minimum role
+  getRoundRobinHostsToReassign: authedProcedure
+    .input(ZGetRoundRobinHostsToReassignInputSchema)
+    .query(async ({ ctx, input }) => {
+      const { getRoundRobinHostsToReassignHandler } = await import("./getRoundRobinHostsToReassign.handler");
+
+      return getRoundRobinHostsToReassignHandler({ ctx, input });
+    }),
+
+  // Automatically pick a new host for a round-robin booking
+  roundRobinReassign: authedProcedure
+    .input(ZRoundRobinReassignInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { roundRobinReassignHandler } = await import("./roundRobinReassign.handler");
+
+      return roundRobinReassignHandler({ ctx, input });
+    }),
+
+  // Reassign a round-robin booking to a specific, caller-chosen host
+  roundRobinManualReassign: authedProcedure
+    .input(ZRoundRobinManualReassignInputSchema)
+    .mutation(async ({ ctx, input }) => {
+      const { roundRobinManualReassignHandler } = await import("./roundRobinManualReassign.handler");
+
+      return roundRobinManualReassignHandler({ ctx, input });
     }),
 });
