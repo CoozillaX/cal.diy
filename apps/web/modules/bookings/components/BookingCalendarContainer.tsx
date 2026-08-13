@@ -27,7 +27,7 @@ import { ViewToggleButton } from "./ViewToggleButton";
 import { WeekPicker } from "./WeekPicker";
 
 // For calendar view, fetch all statuses except cancelled
-const STATUSES: BookingListingStatus[] = ["upcoming", "unconfirmed", "recurring", "past"];
+const STATUSES: BookingListingStatus[] = ["unallocated", "upcoming", "unconfirmed", "recurring", "past"];
 
 interface BookingCalendarContainerProps {
   status: BookingListingStatus;

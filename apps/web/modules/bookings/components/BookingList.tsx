@@ -8,6 +8,7 @@ import { DataTableWrapper } from "~/data-table/components";
 import type { BookingListingStatus, RowData } from "../types";
 
 const descriptionByStatus: Record<BookingListingStatus, string> = {
+  unallocated: "unallocated_bookings",
   upcoming: "upcoming_bookings",
   recurring: "recurring_bookings",
   past: "past_bookings",

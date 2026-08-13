@@ -25,6 +25,9 @@ export function getTabForBooking(booking: BookingForTabResolution): BookingListi
   if (booking.status === "PENDING" && !isPast) {
     return "unconfirmed";
   }
+  if (booking.status === "AWAITING_HOST" && !isPast) {
+    return "unallocated";
+  }
   if (isPast) {
     return "past";
   }
@@ -78,7 +81,7 @@ export function usePreSelectedBooking(): {
   preSelectedBooking: BookingForTabResolution | null;
   preSelectedBookingFull: BookingOutput | null;
   isPending: boolean;
-}{
+} {
   const searchParams = useSearchParams();
   const preSelectedBookingUid = searchParams?.get("uid") ?? undefined;
 

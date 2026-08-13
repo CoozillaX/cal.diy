@@ -1,7 +1,6 @@
-import { useSearchParams, usePathname } from "next/navigation";
-import { useMemo } from "react";
-
 import { useLocale } from "@calcom/lib/hooks/useLocale";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useMemo } from "react";
 
 export function useBookingStatusTab() {
   const { t } = useLocale();
@@ -12,6 +11,12 @@ export function useBookingStatusTab() {
     const queryString = searchParams?.toString() || "";
 
     const baseTabConfigs = [
+      {
+        value: "unallocated",
+        label: "unallocated",
+        path: "/bookings/unallocated",
+        dataTestId: "unallocated",
+      },
       {
         value: "upcoming",
         label: "upcoming",
