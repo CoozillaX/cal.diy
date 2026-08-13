@@ -5907,6 +5907,89 @@
           }
         },
         "tags": ["Teams"]
+      },
+      "patch": {
+        "operationId": "TeamsController_updateTeam",
+        "summary": "Update a team",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "value must be `Bearer <token>` where `<token>` is api key prefixed with cal_",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTeamInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamOutputResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Teams"]
+      },
+      "delete": {
+        "operationId": "TeamsController_deleteTeam",
+        "summary": "Delete a team",
+        "description": "Irreversible. Cascades to the team's memberships, event types, and webhooks. Requires the caller to be the team owner - TEAM_ADMIN is not enough for a destructive, unrecoverable action like this.",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "value must be `Bearer <token>` where `<token>` is api key prefixed with cal_",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamOutputResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Teams"]
       }
     },
     "/v2/teams/{teamId}/event-types": {
@@ -6023,7 +6106,136 @@
         "tags": ["Teams Event Types"]
       }
     },
+    "/v2/teams/{teamId}/event-types/{eventTypeId}": {
+      "patch": {
+        "operationId": "TeamsEventTypesController_updateTeamEventType",
+        "summary": "Update a team event type",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "value must be `Bearer <token>` where `<token>` is api key prefixed with cal_",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "eventTypeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTeamEventTypeInput_2024_06_14"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetEventTypeOutput_2024_06_14"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Teams Event Types"]
+      },
+      "delete": {
+        "operationId": "TeamsEventTypesController_deleteTeamEventType",
+        "summary": "Delete a team event type",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "value must be `Bearer <token>` where `<token>` is api key prefixed with cal_",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "eventTypeId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": ["Teams Event Types"]
+      }
+    },
     "/v2/teams/{teamId}/memberships": {
+      "get": {
+        "operationId": "TeamMembershipsController_listMembers",
+        "summary": "List team members",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "value must be `Bearer <token>` where `<token>` is api key prefixed with cal_",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipsOutputResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Teams Memberships"]
+      },
       "post": {
         "operationId": "TeamMembershipsController_addMember",
         "summary": "Add a team member",
@@ -6072,6 +6284,60 @@
       }
     },
     "/v2/teams/{teamId}/memberships/{userId}": {
+      "patch": {
+        "operationId": "TeamMembershipsController_updateMemberRole",
+        "summary": "Change a team member's role",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "value must be `Bearer <token>` where `<token>` is api key prefixed with cal_",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "userId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateMembershipInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MembershipOutputResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Teams Memberships"]
+      },
       "delete": {
         "operationId": "TeamMembershipsController_removeMember",
         "summary": "Remove a team member",
@@ -6153,6 +6419,212 @@
         },
         "responses": {
           "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamWebhookOutputResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Teams Webhooks"]
+      },
+      "get": {
+        "operationId": "TeamWebhooksController_getTeamWebhooks",
+        "summary": "Get team webhooks",
+        "description": "Gets a paginated list of webhooks belonging to this team.",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "value must be `Bearer <token>` where `<token>` is api key prefixed with cal_",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "take",
+            "required": false,
+            "in": "query",
+            "description": "Maximum number of items to return",
+            "schema": {
+              "minimum": 1,
+              "maximum": 250,
+              "default": 250,
+              "example": 25,
+              "type": "number"
+            }
+          },
+          {
+            "name": "skip",
+            "required": false,
+            "in": "query",
+            "description": "Number of items to skip",
+            "schema": {
+              "minimum": 0,
+              "default": 0,
+              "example": 0,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamWebhooksOutputResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Teams Webhooks"]
+      }
+    },
+    "/v2/teams/{teamId}/webhooks/{webhookId}": {
+      "get": {
+        "operationId": "TeamWebhooksController_getTeamWebhook",
+        "summary": "Get a team webhook",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "value must be `Bearer <token>` where `<token>` is api key prefixed with cal_",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamWebhookOutputResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Teams Webhooks"]
+      },
+      "patch": {
+        "operationId": "TeamWebhooksController_updateTeamWebhook",
+        "summary": "Update a team webhook",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "value must be `Bearer <token>` where `<token>` is api key prefixed with cal_",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateWebhookInputDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TeamWebhookOutputResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "tags": ["Teams Webhooks"]
+      },
+      "delete": {
+        "operationId": "TeamWebhooksController_deleteTeamWebhook",
+        "summary": "Delete a team webhook",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "description": "value must be `Bearer <token>` where `<token>` is api key prefixed with cal_",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "webhookId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "teamId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
@@ -15975,6 +16447,23 @@
         },
         "required": ["status", "data"]
       },
+      "TeamWebhooksOutputResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success",
+            "enum": ["success", "error"]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamWebhookOutputDto"
+            }
+          }
+        },
+        "required": ["status", "data"]
+      },
       "DestinationCalendarsInputBodyDto": {
         "type": "object",
         "properties": {
@@ -16935,27 +17424,22 @@
         },
         "required": ["status", "data"]
       },
-      "CreateMembershipInputDto": {
+      "UpdateTeamInputDto": {
         "type": "object",
         "properties": {
-          "userId": {
-            "type": "number",
-            "description": "Id of the cal.diy user to add to the team.",
-            "example": 42
-          },
-          "role": {
+          "name": {
             "type": "string",
-            "enum": ["MEMBER", "ADMIN", "OWNER"],
-            "default": "MEMBER",
-            "description": "Role to grant the user within the team."
+            "minLength": 1,
+            "description": "Team name.",
+            "example": "Downtown Sales"
           },
-          "accepted": {
-            "type": "boolean",
-            "default": true,
-            "description": "Whether the membership is immediately accepted. Callers using a store-management API key are adding real employees on their behalf, so this defaults to true rather than requiring the user to separately accept an invite."
+          "slug": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Unique team slug. Must be unique across every team and organization.",
+            "example": "downtown-sales"
           }
-        },
-        "required": ["userId"]
+        }
       },
       "MembershipOutputDto": {
         "type": "object",
@@ -16979,6 +17463,45 @@
         },
         "required": ["role", "id", "userId", "teamId", "accepted"]
       },
+      "MembershipsOutputResponseDto": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "example": "success",
+            "enum": ["success", "error"]
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MembershipOutputDto"
+            }
+          }
+        },
+        "required": ["status", "data"]
+      },
+      "CreateMembershipInputDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "number",
+            "description": "Id of the cal.diy user to add to the team.",
+            "example": 42
+          },
+          "role": {
+            "type": "string",
+            "enum": ["MEMBER", "ADMIN", "OWNER"],
+            "default": "MEMBER",
+            "description": "Role to grant the user within the team."
+          },
+          "accepted": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether the membership is immediately accepted. Callers using a store-management API key are adding real employees on their behalf, so this defaults to true rather than requiring the user to separately accept an invite."
+          }
+        },
+        "required": ["userId"]
+      },
       "MembershipOutputResponseDto": {
         "type": "object",
         "properties": {
@@ -16992,6 +17515,17 @@
           }
         },
         "required": ["status", "data"]
+      },
+      "UpdateMembershipInputDto": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["MEMBER", "ADMIN", "OWNER"],
+            "description": "New role to grant the user within the team."
+          }
+        },
+        "required": ["role"]
       },
       "Host": {
         "type": "object",
@@ -17422,6 +17956,414 @@
           }
         },
         "required": ["lengthInMinutes", "title", "slug", "schedulingType"]
+      },
+      "UpdateTeamEventTypeInput_2024_06_14": {
+        "type": "object",
+        "properties": {
+          "lengthInMinutes": {
+            "type": "number",
+            "example": 60
+          },
+          "lengthInMinutesOptions": {
+            "example": [15, 30, 60],
+            "description": "If you want that user can choose between different lengths of the event you can specify them here. Must include the provided `lengthInMinutes`.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "title": {
+            "type": "string",
+            "example": "Learn the secrets of masterchief!"
+          },
+          "slug": {
+            "type": "string",
+            "example": "learn-the-secrets-of-masterchief"
+          },
+          "description": {
+            "type": "string",
+            "example": "Discover the culinary wonders of the Argentina by making the best flan ever!"
+          },
+          "bookingFields": {
+            "type": "array",
+            "description": "Complete set of booking form fields. This array replaces all existing booking fields. To modify existing fields, first fetch the current event type, then include all desired fields in this array. Sending only one field will remove all other custom fields, keeping only default fields plus the provided one.",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/NameDefaultFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/EmailDefaultFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/TitleDefaultFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/LocationDefaultFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/NotesDefaultFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/GuestsDefaultFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/RescheduleReasonDefaultFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/PhoneFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/AddressFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/TextFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/NumberFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/TextAreaFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/SelectFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/MultiSelectFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/MultiEmailFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/CheckboxGroupFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/RadioGroupFieldInput_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/BooleanFieldInput_2024_06_14"
+                }
+              ]
+            }
+          },
+          "disableGuests": {
+            "type": "boolean",
+            "description": "If true, person booking this event can't add guests via their emails."
+          },
+          "slotInterval": {
+            "type": "number",
+            "description": "Number representing length of each slot when event is booked. By default it equal length of the event type.\n      If event length is 60 minutes then we would have slots 9AM, 10AM, 11AM etc. but if it was changed to 30 minutes then\n      we would have slots 9AM, 9:30AM, 10AM, 10:30AM etc. as the available times to book the 60 minute event."
+          },
+          "minimumBookingNotice": {
+            "type": "number",
+            "description": "Minimum number of minutes before the event that a booking can be made."
+          },
+          "beforeEventBuffer": {
+            "type": "number",
+            "description": "Extra time automatically blocked on your calendar before a meeting starts. This gives you time to prepare, review notes, or transition from your previous activity."
+          },
+          "afterEventBuffer": {
+            "type": "number",
+            "description": "Extra time automatically blocked on your calendar after a meeting ends. This gives you time to wrap up, add notes, or decompress before your next commitment."
+          },
+          "scheduleId": {
+            "type": "number",
+            "description": "If you want that this event has different schedule than user's default one you can specify it here."
+          },
+          "bookingLimitsCount": {
+            "description": "Limit how many times this event can be booked",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BaseBookingLimitsCount_2024_06_14"
+              },
+              {
+                "$ref": "#/components/schemas/Disabled_2024_06_14"
+              }
+            ]
+          },
+          "bookerActiveBookingsLimit": {
+            "description": "Limit the number of active bookings a booker can make for this event type.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BookerActiveBookingsLimit_2024_06_14"
+              },
+              {
+                "$ref": "#/components/schemas/Disabled_2024_06_14"
+              }
+            ]
+          },
+          "onlyShowFirstAvailableSlot": {
+            "type": "boolean",
+            "description": "This will limit your availability for this event type to one slot per day, scheduled at the earliest available time."
+          },
+          "bookingLimitsDuration": {
+            "description": "Limit total amount of time that this event can be booked",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BaseBookingLimitsDuration_2024_06_14"
+              },
+              {
+                "$ref": "#/components/schemas/Disabled_2024_06_14"
+              }
+            ]
+          },
+          "bookingWindow": {
+            "description": "Limit how far in the future this event can be booked",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BusinessDaysWindow_2024_06_14"
+              },
+              {
+                "$ref": "#/components/schemas/CalendarDaysWindow_2024_06_14"
+              },
+              {
+                "$ref": "#/components/schemas/RangeWindow_2024_06_14"
+              },
+              {
+                "$ref": "#/components/schemas/Disabled_2024_06_14"
+              }
+            ]
+          },
+          "offsetStart": {
+            "type": "number",
+            "description": "Offset timeslots shown to bookers by a specified number of minutes"
+          },
+          "bookerLayouts": {
+            "description": "Should booker have week, month or column view. Specify default layout and enabled layouts user can pick.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BookerLayouts_2024_06_14"
+              }
+            ]
+          },
+          "confirmationPolicy": {
+            "description": "Specify how the booking needs to be manually confirmed before it is pushed to the integrations and a confirmation mail is sent.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BaseConfirmationPolicy_2024_06_14"
+              },
+              {
+                "$ref": "#/components/schemas/Disabled_2024_06_14"
+              }
+            ]
+          },
+          "recurrence": {
+            "description": "Create a recurring event type.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Recurrence_2024_06_14"
+              },
+              {
+                "$ref": "#/components/schemas/Disabled_2024_06_14"
+              }
+            ]
+          },
+          "requiresBookerEmailVerification": {
+            "type": "boolean"
+          },
+          "hideCalendarNotes": {
+            "type": "boolean"
+          },
+          "lockTimeZoneToggleOnBookingPage": {
+            "type": "boolean"
+          },
+          "color": {
+            "$ref": "#/components/schemas/EventTypeColor_2024_06_14"
+          },
+          "seats": {
+            "description": "Create an event type with multiple seats.",
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/Seats_2024_06_14"
+              },
+              {
+                "$ref": "#/components/schemas/Disabled_2024_06_14"
+              }
+            ]
+          },
+          "customName": {
+            "type": "string",
+            "description": "Customizable event name with valid variables:\n      {Event type title}, {Organiser}, {Scheduler}, {Location}, {Organiser first name},\n      {Scheduler first name}, {Scheduler last name}, {Event duration}, {LOCATION},\n      {HOST/ATTENDEE}, {HOST}, {ATTENDEE}, {USER}",
+            "example": "{Event type title} between {Organiser} and {Scheduler}"
+          },
+          "destinationCalendar": {
+            "$ref": "#/components/schemas/DestinationCalendar_2024_06_14"
+          },
+          "useDestinationCalendarEmail": {
+            "type": "boolean"
+          },
+          "hideCalendarEventDetails": {
+            "type": "boolean"
+          },
+          "successRedirectUrl": {
+            "type": "string",
+            "description": "A valid URL where the booker will redirect to, once the booking is completed successfully",
+            "example": "https://masterchief.com/argentina/flan/video/9129412"
+          },
+          "hideOrganizerEmail": {
+            "type": "boolean",
+            "description": "Boolean to Hide organizer's email address from the booking screen, email notifications, and calendar events"
+          },
+          "calVideoSettings": {
+            "description": "Cal video settings for the event type",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/CalVideoSettings"
+              }
+            ]
+          },
+          "hidden": {
+            "type": "boolean"
+          },
+          "bookingRequiresAuthentication": {
+            "type": "boolean",
+            "default": false,
+            "description": "Boolean to require authentication for booking this event type via api. If true, only authenticated users who are the event-type owner or org/team admin/owner can book this event type."
+          },
+          "disableCancelling": {
+            "description": "Settings for disabling cancelling of this event type.",
+            "example": {
+              "disabled": true
+            },
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableCancelling_2024_06_14"
+              }
+            ]
+          },
+          "disableRescheduling": {
+            "description": "Settings for disabling rescheduling of this event type. Can be always disabled or disabled when less than X minutes before the meeting.",
+            "example": {
+              "disabled": false,
+              "minutesBefore": 60
+            },
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/DisableRescheduling_2024_06_14"
+              }
+            ]
+          },
+          "interfaceLanguage": {
+            "type": "string",
+            "description": "Set preferred language for the booking interface. Use empty string for visitor's browser language (default).",
+            "enum": [
+              "",
+              "en",
+              "ar",
+              "az",
+              "bg",
+              "bn",
+              "ca",
+              "cs",
+              "da",
+              "de",
+              "el",
+              "es",
+              "es-419",
+              "eu",
+              "et",
+              "fi",
+              "fr",
+              "he",
+              "hu",
+              "it",
+              "ja",
+              "km",
+              "ko",
+              "nl",
+              "no",
+              "pl",
+              "pt-BR",
+              "pt",
+              "ro",
+              "ru",
+              "sk-SK",
+              "sr",
+              "sv",
+              "tr",
+              "uk",
+              "vi",
+              "zh-CN",
+              "zh-TW"
+            ]
+          },
+          "allowReschedulingPastBookings": {
+            "type": "boolean",
+            "description": "Enabling this option allows for past events to be rescheduled.",
+            "default": false
+          },
+          "allowReschedulingCancelledBookings": {
+            "type": "boolean",
+            "description": "When enabled, users will be able to create a new booking when trying to reschedule a cancelled booking.",
+            "default": false
+          },
+          "showOptimizedSlots": {
+            "type": "boolean",
+            "description": "Arrange time slots to optimize availability.",
+            "default": false
+          },
+          "schedulingType": {
+            "type": "string",
+            "enum": ["collective", "roundRobin"],
+            "example": "collective",
+            "description": "The scheduling type for the team event - collective or roundRobin. ❗If you change scheduling type you must also provide `hosts` or `assignAllTeamMembers` in the request body, otherwise the event type will have no hosts - this is required because\n      in case of collective event type all hosts are mandatory but in case of round robin some or non can be mandatory so we can't predict how you want the hosts to be setup which is why you must provide that information.  If you want to convert round robin or collective into managed or managed into round robin or collective then you will have to create a new team event type and delete old one."
+          },
+          "hosts": {
+            "description": "Hosts contain specific team members you want to assign to this event type, but if you want to assign all team members, use `assignAllTeamMembers: true` instead and omit this field. For platform customers the hosts can include userIds only of managed users. Provide either hosts or assignAllTeamMembers but not both",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Host"
+            }
+          },
+          "assignAllTeamMembers": {
+            "type": "boolean",
+            "description": "If true, all current and future team members will be assigned to this event type. Provide either assignAllTeamMembers or hosts but not both"
+          },
+          "locations": {
+            "type": "array",
+            "description": "Locations where the event will take place. If not provided, cal video link will be used as the location. Note: Setting a location to a conferencing app does not install the app - the app must already be installed. Via API, only Google Meet (google-meet), Microsoft Teams (office365-video), and Zoom (zoom) can be installed. Cal Video (cal-video) is installed by default. All other conferencing apps must be connected via the Cal.diy web app and are not available for Platform plan customers. You can only set an event type location to an app that has already been installed or connected.",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/InputAddressLocation_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/InputLinkLocation_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/InputIntegrationLocation_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/InputPhoneLocation_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/InputAttendeeAddressLocation_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/InputAttendeePhoneLocation_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/InputAttendeeDefinedLocation_2024_06_14"
+                },
+                {
+                  "$ref": "#/components/schemas/InputOrganizersDefaultApp_2024_06_14"
+                }
+              ]
+            }
+          },
+          "emailSettings": {
+            "description": "Email settings for this event type. Only available for organization team event types.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EmailSettings_2024_06_14"
+              }
+            ]
+          },
+          "rescheduleWithSameRoundRobinHost": {
+            "type": "boolean",
+            "description": "Rescheduled events will be assigned to the same host as initially scheduled."
+          }
+        }
       }
     }
   }

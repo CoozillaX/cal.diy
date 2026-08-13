@@ -2,14 +2,15 @@
 
 > 本文档是 [vehicle-delivery-booking.md](./vehicle-delivery-booking.md) 中 §10 / §12 两项"需要开发"条目的落地方案，供后续实现时参考，不是需求文档本身。
 > 结论全部基于对当前分支代码的实际检查（而非推测），检查方式和文件路径见各节。
-> 最后更新：2026-08-13
+> 最后更新：2026-08-13（§3.1 里标 ❌ 暂缓的几项——改/删团队、改成员角色——已经补齐；团队 webhook 和团队事件类型也从"只能创建"补成了完整 CRUD，见 §3.4）
 
 ## 0. 结论先行
 
 - `apps/api/v2` 是全仓库唯一产出 OpenAPI 文档的服务（`docs/api-reference/v2/openapi.json`），`apps/api/` 下也只有这一个子应用，没有 v1。§10/§12 只能加在这里，没有第二个选项。
-- §10、§12（首批子集）**都已完成开发并本地端到端验证通过**，见 §2 / §3。
+- §10、§12（**含原本标为暂缓的部分，现已全部补齐**）**都已完成开发并本地端到端验证通过**，见 §2 / §3。
 - 本次开发是自用/内部验证，**没有推送到 GitHub、没有开 PR**，全部提交都在本地分支 `feat/team-management-and-availability-fixes` 上。
 - 好消息：不少"看起来要写"的东西其实已经是**孤立但现成**的代码（从未被删干净、只是没接上），可以直接复用。但"现成"不等于"能直接跑"——§3.2 的"建团队事件类型"这一项在真正调用之前完全没有测试过，实测直接暴露了三个之前读代码看不出来的坑（host priority 类型不匹配、assignAllTeamMembers 不会自动同步 host、事件类型创建的默认权限是 OWNER 不是 ADMIN），全部记录在 §3.2。
+- **§3.4（本次新增）**：用户指出团队 webhook 之前"只能创建、不能读取/修改/删除"，参照现成的用户级 `webhooks.controller.ts` 补齐了完整 CRUD；顺带把 §3.1 里原本标"暂缓"的团队增删改、成员改角色也一起做了，不再拆成"首批子集"和"后续"两批。
 
 ## 1. 涉及的现有代码盘点
 
@@ -76,25 +77,32 @@ GET /v2/teams/{teamId}/event-types?eventSlug={slug}&hostsLimit={n}
 
 1 个 controller 文件 + 1 个 module 文件 + 1 处已有文件的一行改动，符合"小 PR"要求，是本方案里最小的一块，建议第一个做。
 
-## 3. §12：staff 后台团队自动化管理 API（首批子集）—— ✅ 已完成
+## 3. §12：staff 后台团队自动化管理 API —— ✅ 已完成（含全量 CRUD）
 
-提交（本地分支，未推送）：`a67b79de35`（团队/成员/webhook）、`702ad5496f`（建团队事件类型）。
+提交（本地分支，未推送）：`a67b79de35`（团队/成员/webhook 首批）、`702ad5446f`（建团队事件类型）、`a2212c5cda`（团队+成员剩余 CRUD）、`13aa5f0576`（团队 webhook 剩余 CRUD）、`10973349f0`（团队事件类型剩余 CRUD）、`726fa2fc9c`（顺带修的一个既有 e2e 测试的 flaky 问题）。
 
-### 3.1 范围取舍
+### 3.1 范围取舍（首批的取舍，现已全部补齐）
 
-原始需求原话是"建团队（如临时小组）或复用已有团队、加减成员、建事件类型、配 webhook"，**没有明确要求**改团队信息、删团队、改成员角色。§7.2 列出的完整 CRUD 表面比实际需求宽，按"不做投机性开发"的原则，首批只做需求原话明确提到的动作，其余留到 staff 后台真正提出再补：
+原始需求原话是"建团队（如临时小组）或复用已有团队、加减成员、建事件类型、配 webhook"，**没有明确要求**改团队信息、删团队、改成员角色，首批按这个范围做的。后续用户明确要求把剩下的补齐（团队 webhook 尤其被指出"只能创建不能读取"不合理），于是全部补上了，不再区分"首批"和"暂缓"：
 
-| 端点 | 是否本次实现 | 原因 |
+| 端点 | 状态 | 备注 |
 |---|---|---|
-| `POST /v2/teams` | ✅ | 需求明确要"建团队" |
-| `GET /v2/teams` / `GET /v2/teams/{teamId}` | ✅ | "复用已有团队"的前提是能查到，`getTeamsUserIsMemberOf`/`getById` 已现成 |
-| `PATCH /v2/teams/{teamId}` | ❌ 暂缓 | 需求没提"改团队信息" |
-| `DELETE /v2/teams/{teamId}` | ❌ 暂缓 | 需求提到"临时小组用完可清理"，但不是首批必须，且删除是不可逆操作，建议单独一个 PR、单独测试 |
-| `POST /v2/teams/{teamId}/memberships` | ✅ | 需求明确要"加成员" |
-| `DELETE /v2/teams/{teamId}/memberships/{userId}` | ✅ | 需求明确要"减成员"；**注意 `MembershipsRepository` 里连底层方法都没有，不只是缺 controller**，见 §3.2 |
-| `PATCH /v2/teams/{teamId}/memberships/{userId}`（改角色） | ❌ 暂缓 | 需求没提"改角色"，且同样是 Repository 层都没有的新功能，成本和"减成员"接近，等真正需要时再一起做 |
-| `POST /v2/teams/{teamId}/event-types` | ✅ | 需求明确要"建事件类型"，`createTeamEventType` 已现成 |
-| `POST /v2/teams/{teamId}/webhooks` | ✅ | 需求明确要"配 webhook" |
+| `POST /v2/teams` | ✅ 首批 | 需求明确要"建团队" |
+| `GET /v2/teams` / `GET /v2/teams/{teamId}` | ✅ 首批 | "复用已有团队"的前提是能查到，`getTeamsUserIsMemberOf`/`getById` 已现成 |
+| `PATCH /v2/teams/{teamId}` | ✅ 补齐（`TEAM_ADMIN`） | |
+| `DELETE /v2/teams/{teamId}` | ✅ 补齐（`TEAM_OWNER`，比其他动作更严） | 不可逆操作，故意比 `PATCH`/成员管理的 `TEAM_ADMIN` 门槛更高；级联删除靠 schema 的 `onDelete: Cascade`，不需要手动清理 |
+| `GET /v2/teams/{teamId}/memberships` | ✅ 补齐（`TEAM_MEMBER`） | `MembershipsRepository` 之前连"按 teamId 查全部成员"的方法都没有，新加了 `findByTeamId` |
+| `POST /v2/teams/{teamId}/memberships` | ✅ 首批 | 需求明确要"加成员" |
+| `DELETE /v2/teams/{teamId}/memberships/{userId}` | ✅ 首批 | 需求明确要"减成员"；**`MembershipsRepository` 里连底层方法都没有，不只是缺 controller**，见 §3.2 |
+| `PATCH /v2/teams/{teamId}/memberships/{userId}`（改角色） | ✅ 补齐（`TEAM_ADMIN`） | 新加了 `MembershipsRepository.updateRole` |
+| `GET /v2/teams/{teamId}/event-types` | ✅ 首批（§10，见 §2） | |
+| `POST /v2/teams/{teamId}/event-types` | ✅ 首批 | 需求明确要"建事件类型"，`createTeamEventType` 已现成，实测踩了三个坑，见 §3.2 |
+| `PATCH /v2/teams/{teamId}/event-types/{eventTypeId}` | ✅ 补齐（`TEAM_ADMIN`） | 复用现成的 `updateTeamEventType`，输入转换镜像了 create 那条已验证过的路径 |
+| `DELETE /v2/teams/{teamId}/event-types/{eventTypeId}` | ✅ 补齐（`TEAM_ADMIN`） | 复用现成的 `deleteTeamEventType` |
+| `POST /v2/teams/{teamId}/webhooks` | ✅ 首批 | 需求明确要"配 webhook" |
+| `GET /v2/teams/{teamId}/webhooks`（列表）/ `GET .../webhooks/{webhookId}`（单条） | ✅ 补齐（`TEAM_ADMIN`） | 见 §3.4，用户指出的"只能写不能读"问题 |
+| `PATCH /v2/teams/{teamId}/webhooks/{webhookId}` | ✅ 补齐（`TEAM_ADMIN`） | |
+| `DELETE /v2/teams/{teamId}/webhooks/{webhookId}` | ✅ 补齐（`TEAM_ADMIN`） | |
 
 ### 3.2 各端点具体实现
 
@@ -131,7 +139,7 @@ GET /v2/teams/{teamId}/event-types?eventSlug={slug}&hostsLimit={n}
 - 输出：直接复用现成但目前孤立的 `TeamWebhookOutputDto` / `TeamWebhookOutputResponseDto`（`apps/api/v2/src/modules/webhooks/outputs/team-webhook.output.ts`），不需要新写
 - 鉴权：`RolesGuard` + `@Roles("TEAM_ADMIN")`
 
-### 3.3 实际新增/修改的文件
+### 3.3 首批新增/修改的文件
 
 | 文件 | 类型 |
 |---|---|
@@ -149,21 +157,43 @@ GET /v2/teams/{teamId}/event-types?eventSlug={slug}&hostsLimit={n}
 | `apps/api/v2/src/modules/teams/teams.module.ts` / `apps/api/v2/src/modules/webhooks/webhooks.module.ts` | 修改，接入新 controller/service |
 | 对应的 `*.e2e-spec.ts`（5 个文件，共 31 条用例） | 新建 |
 
-按单次 commit 的文件数/行数看确实超过"小 PR"的建议阈值，但既然本次不走 PR、只是自用分支上的连续提交，就没有再按 PR2a/b/c 拆分——实际按 §4 的顺序分了三次独立提交（团队事件类型查询 → 团队/成员/webhook → 建团队事件类型），每次都本地跑过 e2e 才提交。
+按单次 commit 的文件数/行数看确实超过"小 PR"的建议阈值，但既然本次不走 PR、只是自用分支上的连续提交，就没有再按 PR2a/b/c 拆分——按 §4 的顺序做，每个动作一次独立提交，每次都本地跑过 e2e 才提交。
+
+### 3.4 补齐剩余 CRUD（用户明确要求后新增）
+
+用户指出团队 webhook"只能创建、不能读取"不合理，参照现成的用户级 `apps/api/v2/src/modules/webhooks/controllers/webhooks.controller.ts` 补齐；顺带把 §3.1 里原本因为"需求原话没提"而暂缓的团队改/删、成员改角色也一起做了。
+
+**团队本身**：`TeamsManagementService` 加 `updateTeam`/`deleteTeam`，直接包一层 `TeamsRepository.update`/`delete`（两个方法本来就已经现成）。`DELETE` 单独给了比其他动作更高的 `TEAM_OWNER` 门槛（其余都是 `TEAM_ADMIN`）——不可逆操作，且级联删除范围大（成员、事件类型、webhook 全部因为 schema 的 `onDelete: Cascade` 一起没了），值得比"改名字"这种动作更谨慎。
+
+**成员列表 + 改角色**：`MembershipsRepository` 新增 `findByTeamId`（列表）和 `updateRole`（改角色）——这两个方法之前完全不存在，不是"补 controller"就够。
+
+**团队事件类型的 update/delete**：直接复用 `TeamsEventTypesService.updateTeamEventType`/`deleteTeamEventType`（本来就实现好了，只是零调用点）。update 路径需要一个新的输入转换方法 `transformAndValidateUpdateTeamEventTypeInput`，写法完全镜像 create 路径已经验证过的 `transformAndValidateCreateTeamEventTypeInput`——同样的"个人/团队 DTO 共享基类、类型转换接进已验证的转换函数"思路，这次没有再踩 create 路径踩过的那三个坑（因为走的是同一条转换管线，priority 映射、`...rest` 透传都已经在 create 那次修好了）。
+
+**团队 webhook 的 GET/PATCH/DELETE**：新增 `IsTeamWebhookGuard`（镜像既有的 `IsUserWebhookGuard`），校验 URL 里的 `:webhookId` 确实属于 `:teamId`，不属于就 403。`WebhooksRepository` 加了 `getTeamWebhooksPaginated`（之前只有 user-scoped 和 event-type-scoped 的分页查询）。**这五个端点全部要求 `TEAM_ADMIN`，包括读**——跟其他"读用 `TEAM_MEMBER`、写用 `TEAM_ADMIN`"的端点不一样，因为 webhook 响应里会带 `secret` 字段（跟现有用户级 webhook 接口对自己调用者暴露 `secret` 是同一个字段），团队 webhook 是全队共享的，所以读也收紧到 admin。
+
+**顺带修的一个无关 bug**：改团队 webhook 时反复跑 `webhooks.controller.e2e-spec.ts`（既有的用户级 webhook 测试，作为回归检查）遇到过三次同一个"unique constraint failed"失败——用固定字符串 `"2mdfnn2"` 当 webhook id，`afterAll` 里的清理调用又没有 `await`，导致某次运行被打断后残留脏数据，下次运行必现冲突。改成了随机 id + 补上 `await`（`726fa2fc9c`），这是这份测试文件本身的既有问题，跟本次团队功能改动无关，只是反复回归测试时正好撞上了。
+
+**验证**：这一批新增了 21 条 e2e 用例（团队+成员 12 条、团队 webhook 5 条+1 条权限、团队事件类型 4 条），加上之前的 23 条，全套 `src/modules/teams/` + 两个 webhook 测试文件累计 44 条全部通过。也重新生成过一次真实的 `docs/api-reference/v2/openapi.json`（用修好的本地 dev server，不是临时脚本），按路径和 schema 逐项比对 main 分支，确认零删除、只新增了这次加的 8 条路径和相应的输出/输入 DTO schema。
 
 ## 4. 开发顺序（实际执行记录）
 
 1. ✅ `GET /v2/teams/{teamId}/event-types`（§2）
 2. ✅ 建团队 + 加/减成员 + 团队 webhook（§3.2 前三块）
 3. ✅ 建团队事件类型（§3.2 第四块）—— 最后做是因为它依赖的 `createTeamEventType` 从零调用点开始，实际接入过程中发现的坑（§3.2）比其余三个端点加起来都多，属于"看起来简单、实测最复杂"的一项
+4. ✅（用户要求后）团队改/删 + 成员列表/改角色（§3.4）
+5. ✅（用户要求后）团队 webhook 的 GET/PATCH/DELETE（§3.4）
+6. ✅（用户要求后）团队事件类型的 PATCH/DELETE（§3.4）
+7. ✅ 顺手修了 §3.4 提到的既有 e2e 测试 flaky 问题
+8. ✅ 用修好的本地 dev server 重新生成 `docs/api-reference/v2/openapi.json`，核对无删除
 
 ## 5. 已解决 / 仍然待定的点
 
-1. ~~`RolesGuard` 是从未被实际使用过的代码~~ —— **已验证**。§2/§3 的 5 个 e2e spec 文件专门覆盖了它的授权/拒绝两条分支（"非成员访问被拒""TEAM_MEMBER 访问被拒需要 TEAM_ADMIN 的端点""ADMIN/OWNER 正常访问"），全部通过，不再是未验证代码。
+1. ~~`RolesGuard` 是从未被实际使用过的代码~~ —— **已验证**。累计 6 个 e2e spec 文件覆盖了它的授权/拒绝分支（"非成员访问被拒""TEAM_MEMBER 访问被拒需要 TEAM_ADMIN/TEAM_OWNER 的端点""ADMIN/OWNER 正常访问"），全部通过，不再是未验证代码。
 2. **用 `RolesGuard`（OWNER/ADMIN/MEMBER 三级）还是接入 `TeamPermissionSetting` 细粒度权限系统**——本方案在 controller 层选了前者（原因不变，见下），但 §3.2 实测发现事件类型创建这类动作在**更深一层**（`createEventType` 内部）本来就会走 `TeamPermissionSetting`，且默认比 `RolesGuard` 更严（`OWNER` vs `TEAM_ADMIN`）。也就是说两套机制其实已经在同时生效、分层组合：`RolesGuard` 做入口粗粒度拦截（非团队成员早失败，省一次 DB/权限查询），`TeamPermissionSetting` 在具体动作内部做精细裁决。目前没有把 `TeamPermissionSetting` 直接接进 `RolesGuard` 本身，因为它仍然绑定在 `packages/features`，跨到 `apps/api/v2` 的引入代价没变；如果 staff 后台后续要用 API 直接**读/改**某个团队的权限配置（而不是被动受它约束），才需要重新评估。
-3. **`POST /v2/teams` 的滥用风险**：仍未处理。任何持有有效 API key 的调用方都能建团队并自动成为 owner。§7.3 提到 `ApiKey.teamId` 可以把 key 锁定到某个团队，但"建团队"这个动作发生在团队存在之前，锁定字段起不到作用，需要额外考虑要不要限制"谁的 API key 能调用建团队接口"（例如只允许系统管理员级别的 key）。
+3. **`POST /v2/teams` 的滥用风险**：仍未处理。任何持有有效 API key 的调用方都能建团队并自动成为 owner。§7.3 提到 `ApiKey.teamId` 可以把 key 锁定到某个团队，但"建团队"这个动作发生在团队存在之前，锁定字段起不到作用，需要额外考虑要不要限制"谁的 API key 能调用建团队接口"（例如只允许系统管理员级别的 key）。**`DELETE /v2/teams/{teamId}` 现在也是这个风险的镜像问题**：拿到 owner 权限的调用方可以整个删掉团队（级联删除成员/事件类型/webhook），目前唯一的门槛是 `TEAM_OWNER` 角色，没有额外的二次确认或软删除机制。
 4. **§10 的数据暴露面**：仍未处理。`getTeamEventTypeBySlug` 走的是 `include`（不是 `select`），会带出 `users`/`hosts`/`schedule`/`destinationCalendar` 等完整关联数据，超出"服务器对服务器查 eventTypeId"这个用途实际需要的字段。`hostsLimit=0` 能省掉 host 列表，但 `users`/`schedule` 等字段目前没有开关。
-5. **（新发现）建团队事件类型的三个坑**，详见 §3.2 第四块：`hosts[].priority` 需要手动做字符串标签→整数的转换（已修复）；`assignAllTeamMembers: true` 不会自动同步 Host 表，调用方必须显式传 `hosts`（已在 API 层留了注释说明，没有改动底层行为）；这个动作的默认权限门槛是 `TeamPermissionSetting` 里的 `OWNER`，比 `RolesGuard` 的 `TEAM_ADMIN` 更严（这是既有设计，不是 bug）。
+5. **建团队事件类型的三个坑**，详见 §3.2 第四块：`hosts[].priority` 需要手动做字符串标签→整数的转换（已修复）；`assignAllTeamMembers: true` 不会自动同步 Host 表，调用方必须显式传 `hosts`（已在 API 层留了注释说明，没有改动底层行为）；这个动作的默认权限门槛是 `TeamPermissionSetting` 里的 `OWNER`，比 `RolesGuard` 的 `TEAM_ADMIN` 更严（这是既有设计，不是 bug）。
+6. **团队 webhook 读也收紧到 `TEAM_ADMIN`**：跟其他资源"读 `TEAM_MEMBER`/写 `TEAM_ADMIN`"的分层不一致，是刻意的（响应带 `secret`），但如果以后要放宽（比如加一个不带 secret 的精简视图给普通成员看"这个团队配了哪些 webhook"），需要单独设计输出 DTO，不能简单改角色门槛了事。
 
 ## 6. 参考
 
