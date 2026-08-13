@@ -100,6 +100,7 @@ export const useEventTypeForm = ({
       metadata: eventType.metadata,
       hosts: eventType.hosts.sort((a, b) => sortHosts(a, b, eventType.isRRWeightsEnabled)),
       hostGroups: eventType.hostGroups || [],
+      fallbackHostUserId: eventType.fallbackHostUserId ?? null,
       successRedirectUrl: eventType.successRedirectUrl || "",
       forwardParamsSuccessRedirect: eventType.forwardParamsSuccessRedirect,
       users: eventType.users,

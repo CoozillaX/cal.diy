@@ -4,10 +4,12 @@ import type { CheckedSelectOption } from "@calcom/features/eventtypes/components
 import { CheckedTeamSelect } from "@calcom/features/eventtypes/components/CheckedTeamSelect";
 import { LearnMoreLink } from "@calcom/features/eventtypes/components/LearnMoreLink";
 import type { EventTypeSetupProps, FormValues, Host } from "@calcom/features/eventtypes/lib/types";
+import { meetsMinimumRole, TEAM_PERMISSIONS } from "@calcom/features/teams/lib/teamPermissions";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import { SchedulingType } from "@calcom/prisma/enums";
+import { MembershipRole, SchedulingType } from "@calcom/prisma/enums";
+import { trpc } from "@calcom/trpc/react";
 import { Label, SelectField, Switch } from "@calcom/ui/components/form";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Controller, useFormContext } from "react-hook-form";
 import type { EventTypeSetup, TeamMembers } from "../../EventType";
 
@@ -21,6 +23,7 @@ const TEAM_SCHEDULING_TYPES = [SchedulingType.ROUND_ROBIN, SchedulingType.COLLEC
 const EventTeamAssignmentTabWebWrapper = ({
   eventType,
   teamMembers,
+  team,
 }: {
   orgId: number | null;
   teamMembers: TeamMembers;
@@ -33,6 +36,11 @@ const EventTeamAssignmentTabWebWrapper = ({
   const schedulingType = formMethods.watch("schedulingType") ?? eventType.schedulingType;
   const hosts = formMethods.watch("hosts") ?? [];
   const isRRWeightsEnabled = formMethods.watch("isRRWeightsEnabled") ?? eventType.isRRWeightsEnabled;
+  const fallbackHostUserId = formMethods.watch("fallbackHostUserId") ?? eventType.fallbackHostUserId;
+  // Tracked separately from fallbackHostUserId so switching the mechanism on reveals the picker
+  // immediately, before a person has actually been chosen (which would otherwise leave
+  // fallbackHostUserId null and the derived "is it on" state stuck at false).
+  const [isFallbackHostEnabled, setIsFallbackHostEnabled] = useState(fallbackHostUserId != null);
 
   const schedulingTypeOptions = TEAM_SCHEDULING_TYPES.map((value) => ({
     value,
@@ -70,11 +78,34 @@ const EventTeamAssignmentTabWebWrapper = ({
             weight: host.weight,
             isFixed: host.isFixed,
             groupId: host.groupId,
-            ignoreTimeConflicts: host.ignoreTimeConflicts,
           },
         ];
       }),
     [hosts, teamMembers]
+  );
+
+  // The fallback host is deliberately decoupled from the `hosts` list - candidates are whoever on
+  // the team meets the configured booking.reassign minimum role (mirrored server-side in
+  // update.handler.ts), not just people already assigned as hosts.
+  const { data: permissionSettings } = trpc.viewer.teams.getPermissionSettings.useQuery(
+    { teamId: team?.id ?? 0 },
+    { enabled: !!team?.id }
+  );
+  const reassignMinimumRole =
+    permissionSettings?.find((setting) => setting.permissionKey === TEAM_PERMISSIONS.BOOKING_REASSIGN)
+      ?.minimumRole ?? MembershipRole.ADMIN;
+  const fallbackHostOptions = useMemo(
+    () =>
+      teamMembers
+        .filter((member) => meetsMinimumRole(member.membership, reassignMinimumRole))
+        .map((member) => ({
+          value: member.id,
+          label: member.name || member.email,
+        })),
+    [teamMembers, reassignMinimumRole]
+  );
+  const selectedFallbackHostOption = fallbackHostOptions.find(
+    (option) => option.value === fallbackHostUserId
   );
 
   // Managed event types push their config out to each member's own event type instead of
@@ -95,7 +126,6 @@ const EventTeamAssignmentTabWebWrapper = ({
         // scheduleId field - preserve whatever the host already had instead of losing it.
         scheduleId: hosts.find((host) => host.userId === userId)?.scheduleId ?? null,
         groupId: option.groupId,
-        ignoreTimeConflicts: option.ignoreTimeConflicts ?? false,
       };
     });
     formMethods.setValue("hosts", nextHosts, { shouldDirty: true });
@@ -158,6 +188,34 @@ const EventTeamAssignmentTabWebWrapper = ({
       </div>
 
       {hosts.length === 0 && <p className="text-error text-sm">{t("no_hosts_selected_warning")}</p>}
+
+      {schedulingType === SchedulingType.ROUND_ROBIN && (
+        <div>
+          <Switch
+            label={t("enable_fallback_host")}
+            checked={isFallbackHostEnabled}
+            onCheckedChange={(checked) => {
+              setIsFallbackHostEnabled(checked);
+              if (!checked) {
+                formMethods.setValue("fallbackHostUserId", null, { shouldDirty: true });
+              }
+            }}
+          />
+          <p className="text-subtle mt-1 text-sm">{t("fallback_host_description")}</p>
+          {isFallbackHostEnabled && (
+            <div className="mt-2">
+              <SelectField
+                placeholder={t("select_fallback_host_placeholder")}
+                options={fallbackHostOptions}
+                value={selectedFallbackHostOption}
+                onChange={(option) =>
+                  formMethods.setValue("fallbackHostUserId", option?.value ?? null, { shouldDirty: true })
+                }
+              />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

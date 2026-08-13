@@ -29,7 +29,6 @@ export type CheckedSelectOption = {
   disabled?: boolean;
   defaultScheduleId?: number | null;
   groupId: string | null;
-  ignoreTimeConflicts?: boolean;
 };
 
 export type CheckedTeamSelectCustomClassNames = {
@@ -42,7 +41,6 @@ export type CheckedTeamSelectCustomClassNames = {
       name?: string;
       changePriorityButton?: string;
       changeWeightButton?: string;
-      toggleIgnoreTimeConflictsButton?: string;
       removeButton?: string;
     };
   };
@@ -167,29 +165,6 @@ export const CheckedTeamSelect = ({
                     ) : (
                       <></>
                     )}
-                    <Tooltip content={t("ignore_time_conflicts_tooltip")}>
-                      <Button
-                        color="minimal"
-                        className={classNames(
-                          "ml-3 mr-3 h-6 w-6 p-0 hover:bg-transparent",
-                          option.ignoreTimeConflicts ? "text-success" : "text-subtle",
-                          customClassNames?.selectedHostList?.listItem?.toggleIgnoreTimeConflictsButton
-                        )}
-                        onClick={() =>
-                          props.onChange(
-                            value.map((item) =>
-                              item.value === option.value
-                                ? { ...item, ignoreTimeConflicts: !item.ignoreTimeConflicts }
-                                : item
-                            )
-                          )
-                        }>
-                        <Icon
-                          name={option.ignoreTimeConflicts ? "shield-check" : "shield"}
-                          className="h-5 w-5"
-                        />
-                      </Button>
-                    </Tooltip>
                   </>
                 ) : (
                   <></>
