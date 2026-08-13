@@ -12,6 +12,7 @@ import { Select } from "@calcom/ui/components/form";
 import { SkeletonContainer, SkeletonText } from "@calcom/ui/components/skeleton";
 import { showToast } from "@calcom/ui/components/toast";
 import { useMemo } from "react";
+import type { CSSObjectWithLabel } from "react-select";
 import TeamSettingsLayout from "~/teams/components/TeamSettingsLayout";
 import { useIsTeamOwner } from "~/teams/hooks/useIsTeamOwner";
 
@@ -100,6 +101,9 @@ const PermissionRow = ({
         value={selected}
         options={roleOptions}
         onChange={(option) => option && onChange(permissionKey, option.value)}
+        menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+        menuPlacement="auto"
+        styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) as CSSObjectWithLabel }}
       />
     </div>
   );
