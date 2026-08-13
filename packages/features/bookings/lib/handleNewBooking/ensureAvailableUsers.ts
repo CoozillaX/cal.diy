@@ -17,12 +17,12 @@ import type { getEventTypeResponse } from "./getEventTypesFromDB";
 import type { BookingType } from "./originalRescheduledBookingUtils";
 import type { IsFixedAwareUser } from "./types";
 
-type DateRange = {
+export type DateRange = {
   start: Dayjs;
   end: Dayjs;
 };
 
-const getDateTimeInUtc = (timeInput: string, timeZone?: string) => {
+export const getDateTimeInUtc = (timeInput: string, timeZone?: string) => {
   return timeZone === "Etc/GMT" ? dayjs.utc(timeInput) : dayjs(timeInput).tz(timeZone).utc();
 };
 
@@ -32,7 +32,9 @@ const getOriginalBookingDuration = (originalBooking?: BookingType) => {
     : undefined;
 };
 
-const hasDateRangeForBooking = (
+// Exported for resolveFallbackHost.ts, which needs the same "is this slot within these date
+// ranges" check but for a single user resolved outside the normal host pool.
+export const hasDateRangeForBooking = (
   dateRanges: DateRange[],
   startDateTimeUtc: dayjs.Dayjs,
   endDateTimeUtc: dayjs.Dayjs

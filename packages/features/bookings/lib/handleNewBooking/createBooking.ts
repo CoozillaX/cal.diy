@@ -33,6 +33,11 @@ type CreateBookingParams = {
       metadata?: Prisma.JsonValue;
     };
     isConfirmedByDefault: boolean;
+    // Set when organizerUser was only assigned because the round-robin pool was exhausted and
+    // eventType.fallbackHostUserId had to be used as a last resort - see resolveFallbackHost.ts.
+    // Only affects the status actually written below when isConfirmedByDefault is also true;
+    // event types requiring active confirmation are unaffected and keep their normal PENDING flow.
+    isFallbackAssignment?: boolean;
     paymentAppData: PaymentAppData;
   };
   input: {
@@ -165,6 +170,16 @@ function getAttendeesData(evt: Pick<CalendarEvent, "attendees" | "team">) {
   }));
 }
 
+function getNewBookingStatus(eventType: CreateBookingParams["eventType"]): BookingStatus {
+  if (!eventType.isConfirmedByDefault) {
+    return BookingStatus.PENDING;
+  }
+  if (eventType.isFallbackAssignment) {
+    return BookingStatus.AWAITING_HOST;
+  }
+  return BookingStatus.ACCEPTED;
+}
+
 function buildNewBookingData(params: CreateBookingParams) {
   const {
     uid,
@@ -180,6 +195,7 @@ function buildNewBookingData(params: CreateBookingParams) {
 
   const attendeesData = getAttendeesData(evt);
   const eventTypeRel = getEventTypeRel(eventType.id);
+  const bookingStatus = getNewBookingStatus(eventType);
   const newBookingData: Prisma.BookingCreateInput = {
     uid,
     userPrimaryEmail: evt.organizer.email,
@@ -189,7 +205,7 @@ function buildNewBookingData(params: CreateBookingParams) {
     endTime: dayjs.utc(evt.endTime).toDate(),
     description: evt.seatsPerTimeSlot ? null : evt.additionalNotes,
     customInputs: isPrismaObjOrUndefined(evt.customInputs),
-    status: eventType.isConfirmedByDefault ? BookingStatus.ACCEPTED : BookingStatus.PENDING,
+    status: bookingStatus,
     oneTimePassword: evt.oneTimePassword,
     location: evt.location,
     eventType: eventTypeRel,

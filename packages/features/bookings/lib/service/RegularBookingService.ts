@@ -107,6 +107,7 @@ import { handleAppsStatus } from "../handleNewBooking/handleAppsStatus";
 import { loadAndValidateUsers } from "../handleNewBooking/loadAndValidateUsers";
 import type { BookingType } from "../handleNewBooking/originalRescheduledBookingUtils";
 import { getOriginalRescheduledBooking } from "../handleNewBooking/originalRescheduledBookingUtils";
+import { resolveFallbackHost } from "../handleNewBooking/resolveFallbackHost";
 import { scheduleNoShowTriggers } from "../handleNewBooking/scheduleNoShowTriggers";
 import type { IEventTypePaymentCredentialType, Invitee, IsFixedAwareUser } from "../handleNewBooking/types";
 import { validateBookingTimeIsNotOutOfBounds } from "../handleNewBooking/validateBookingTimeIsNotOutOfBounds";
@@ -856,6 +857,10 @@ async function handler(
   let luckyUserResponse;
   let isFirstSeat = true;
   let availableUsers: IsFixedAwareUser[] = [];
+  // Set when the round-robin pool below is entirely exhausted and the event type's fallback
+  // host (EventType.fallbackHostUserId) had to be used as a last resort instead - read further
+  // down to decide whether the created booking should be AWAITING_HOST rather than ACCEPTED.
+  let isFallbackAssignment = false;
 
   if (eventType.seatsPerTimeSlot) {
     const booking = await deps.prismaClient.booking.findFirst({
@@ -963,39 +968,16 @@ async function handler(
     }
 
     if (!input.bookingData.allRecurringDates || input.bookingData.isFirstRecurringSlot) {
+      // This whole round-robin resolution attempt is wrapped in an outer try/catch below (see
+      // its matching `catch (error)` right before this `if` block closes) so that, when every
+      // existing failure path here is exhausted, we get one last chance to fall back to
+      // eventType.fallbackHostUserId before giving up - without touching any of the existing
+      // resolution logic or its error codes.
       try {
-        if (!skipAvailabilityCheck) {
-          availableUsers = await ensureAvailableUsers(
-            { ...eventTypeWithUsers, users: [...qualifiedRRUsers, ...fixedUsers] as IsFixedAwareUser[] },
-            {
-              dateFrom: dayjs(reqBody.start).tz(reqBody.timeZone).format(),
-              dateTo: dayjs(reqBody.end).tz(reqBody.timeZone).format(),
-              timeZone: reqBody.timeZone,
-              originalRescheduledBooking,
-            },
-            tracingLogger,
-            calendarFetchMode
-          );
-        } else {
-          availableUsers = [...qualifiedRRUsers, ...fixedUsers] as IsFixedAwareUser[];
-        }
-      } catch {
-        if (additionalFallbackRRUsers.length) {
-          tracingLogger.debug(
-            "Qualified users not available, check for fallback users",
-            safeStringify({
-              qualifiedRRUsers: qualifiedRRUsers.map((user) => user.id),
-              additionalFallbackRRUsers: additionalFallbackRRUsers.map((user) => user.id),
-            })
-          );
-          // can happen when contact owner not available for 2 weeks or fairness would block at least 2 weeks
-          // use fallback instead
+        try {
           if (!skipAvailabilityCheck) {
             availableUsers = await ensureAvailableUsers(
-              {
-                ...eventTypeWithUsers,
-                users: [...additionalFallbackRRUsers, ...fixedUsers] as IsFixedAwareUser[],
-              },
+              { ...eventTypeWithUsers, users: [...qualifiedRRUsers, ...fixedUsers] as IsFixedAwareUser[] },
               {
                 dateFrom: dayjs(reqBody.start).tz(reqBody.timeZone).format(),
                 dateTo: dayjs(reqBody.end).tz(reqBody.timeZone).format(),
@@ -1006,159 +988,218 @@ async function handler(
               calendarFetchMode
             );
           } else {
-            availableUsers = [...additionalFallbackRRUsers, ...fixedUsers] as IsFixedAwareUser[];
+            availableUsers = [...qualifiedRRUsers, ...fixedUsers] as IsFixedAwareUser[];
           }
-        } else {
-          tracingLogger.debug(
-            "Qualified users not available, no fallback users",
-            safeStringify({
-              qualifiedRRUsers: qualifiedRRUsers.map((user) => user.id),
-            })
-          );
-          throw new Error(ErrorCode.NoAvailableUsersFound);
-        }
-      }
-
-      const fixedUserPool: IsFixedAwareUser[] = [];
-      const nonFixedUsers: IsFixedAwareUser[] = [];
-
-      availableUsers.forEach((user) => {
-        if (user.isFixed) {
-          fixedUserPool.push(user);
-        } else {
-          nonFixedUsers.push(user);
-        }
-      });
-
-      // Group non-fixed users by their group IDs
-      const luckyUserPools = groupHostsByGroupId({
-        hosts: nonFixedUsers,
-        hostGroups: eventType.hostGroups,
-      });
-
-      const notAvailableLuckyUsers: typeof users = [];
-
-      tracingLogger.debug(
-        "Computed available users",
-        safeStringify({
-          availableUsers: availableUsers.map((user) => user.id),
-          luckyUserPools: Object.fromEntries(
-            Object.entries(luckyUserPools).map(([groupId, users]) => [groupId, users.map((user) => user.id)])
-          ),
-        })
-      );
-
-      const luckyUsers: typeof users = [];
-      // loop through all non-fixed hosts and get the lucky users
-      // This logic doesn't run when contactOwner is used because in that case, luckUsers.length === 1
-      for (const [groupId, luckyUserPool] of Object.entries(luckyUserPools)) {
-        let luckUserFound = false;
-        while (luckyUserPool.length > 0 && !luckUserFound) {
-          const freeUsers = luckyUserPool.filter(
-            (user) => !luckyUsers.concat(notAvailableLuckyUsers).find((existing) => existing.id === user.id)
-          );
-          // no more freeUsers after subtracting notAvailableLuckyUsers from luckyUsers :(
-          if (freeUsers.length === 0) break;
-          assertNonEmptyArray(freeUsers); // make sure TypeScript knows it too with an assertion; the error will never be thrown.
-          // freeUsers is ensured
-
-          const userIdsSet = new Set(users.map((user) => user.id));
-          const newLuckyUser = await deps.luckyUserService.getLuckyUser({
-            availableUsers: freeUsers,
-            allRRHosts: eventTypeWithUsers.hosts.filter(
-              (host) =>
-                !host.isFixed &&
-                userIdsSet.has(host.user.id) &&
-                (host.groupId === groupId || (!host.groupId && groupId === DEFAULT_GROUP_ID))
-            ),
-            eventType,
-            meetingStartTime: new Date(reqBody.start),
-          });
-          if (!newLuckyUser) {
-            break; // prevent infinite loop
-          }
-          if (
-            input.bookingData.isFirstRecurringSlot &&
-            eventType.schedulingType === SchedulingType.ROUND_ROBIN &&
-            input.bookingData.numSlotsToCheckForAvailability &&
-            input.bookingData.allRecurringDates
-          ) {
-            // for recurring round robin events check if lucky user is available for next slots
-            try {
-              for (
-                let i = 0;
-                i < input.bookingData.allRecurringDates.length &&
-                i < input.bookingData.numSlotsToCheckForAvailability;
-                i++
-              ) {
-                const start = input.bookingData.allRecurringDates[i].start;
-                const end = input.bookingData.allRecurringDates[i].end;
-
-                if (!skipAvailabilityCheck) {
-                  await ensureAvailableUsers(
-                    { ...eventTypeWithUsers, users: [newLuckyUser] },
-                    {
-                      dateFrom: dayjs(start).tz(reqBody.timeZone).format(),
-                      dateTo: dayjs(end).tz(reqBody.timeZone).format(),
-                      timeZone: reqBody.timeZone,
-                      originalRescheduledBooking,
-                    },
-                    tracingLogger,
-                    calendarFetchMode
-                  );
-                }
-              }
-              // if no error, then lucky user is available for the next slots
-              luckyUsers.push(newLuckyUser);
-              luckUserFound = true;
-            } catch {
-              notAvailableLuckyUsers.push(newLuckyUser);
-              tracingLogger.info(
-                `Round robin host ${newLuckyUser.name} not available for first two slots. Trying to find another host.`
+        } catch {
+          if (additionalFallbackRRUsers.length) {
+            tracingLogger.debug(
+              "Qualified users not available, check for fallback users",
+              safeStringify({
+                qualifiedRRUsers: qualifiedRRUsers.map((user) => user.id),
+                additionalFallbackRRUsers: additionalFallbackRRUsers.map((user) => user.id),
+              })
+            );
+            // can happen when contact owner not available for 2 weeks or fairness would block at least 2 weeks
+            // use fallback instead
+            if (!skipAvailabilityCheck) {
+              availableUsers = await ensureAvailableUsers(
+                {
+                  ...eventTypeWithUsers,
+                  users: [...additionalFallbackRRUsers, ...fixedUsers] as IsFixedAwareUser[],
+                },
+                {
+                  dateFrom: dayjs(reqBody.start).tz(reqBody.timeZone).format(),
+                  dateTo: dayjs(reqBody.end).tz(reqBody.timeZone).format(),
+                  timeZone: reqBody.timeZone,
+                  originalRescheduledBooking,
+                },
+                tracingLogger,
+                calendarFetchMode
               );
+            } else {
+              availableUsers = [...additionalFallbackRRUsers, ...fixedUsers] as IsFixedAwareUser[];
             }
           } else {
-            luckyUsers.push(newLuckyUser);
-            luckUserFound = true;
+            tracingLogger.debug(
+              "Qualified users not available, no fallback users",
+              safeStringify({
+                qualifiedRRUsers: qualifiedRRUsers.map((user) => user.id),
+              })
+            );
+            throw new Error(ErrorCode.NoAvailableUsersFound);
           }
         }
+
+        const fixedUserPool: IsFixedAwareUser[] = [];
+        const nonFixedUsers: IsFixedAwareUser[] = [];
+
+        availableUsers.forEach((user) => {
+          if (user.isFixed) {
+            fixedUserPool.push(user);
+          } else {
+            nonFixedUsers.push(user);
+          }
+        });
+
+        // Group non-fixed users by their group IDs
+        const luckyUserPools = groupHostsByGroupId({
+          hosts: nonFixedUsers,
+          hostGroups: eventType.hostGroups,
+        });
+
+        const notAvailableLuckyUsers: typeof users = [];
+
+        tracingLogger.debug(
+          "Computed available users",
+          safeStringify({
+            availableUsers: availableUsers.map((user) => user.id),
+            luckyUserPools: Object.fromEntries(
+              Object.entries(luckyUserPools).map(([groupId, users]) => [
+                groupId,
+                users.map((user) => user.id),
+              ])
+            ),
+          })
+        );
+
+        const luckyUsers: typeof users = [];
+        // loop through all non-fixed hosts and get the lucky users
+        // This logic doesn't run when contactOwner is used because in that case, luckUsers.length === 1
+        for (const [groupId, luckyUserPool] of Object.entries(luckyUserPools)) {
+          let luckUserFound = false;
+          while (luckyUserPool.length > 0 && !luckUserFound) {
+            const freeUsers = luckyUserPool.filter(
+              (user) => !luckyUsers.concat(notAvailableLuckyUsers).find((existing) => existing.id === user.id)
+            );
+            // no more freeUsers after subtracting notAvailableLuckyUsers from luckyUsers :(
+            if (freeUsers.length === 0) break;
+            assertNonEmptyArray(freeUsers); // make sure TypeScript knows it too with an assertion; the error will never be thrown.
+            // freeUsers is ensured
+
+            const userIdsSet = new Set(users.map((user) => user.id));
+            const newLuckyUser = await deps.luckyUserService.getLuckyUser({
+              availableUsers: freeUsers,
+              allRRHosts: eventTypeWithUsers.hosts.filter(
+                (host) =>
+                  !host.isFixed &&
+                  userIdsSet.has(host.user.id) &&
+                  (host.groupId === groupId || (!host.groupId && groupId === DEFAULT_GROUP_ID))
+              ),
+              eventType,
+              meetingStartTime: new Date(reqBody.start),
+            });
+            if (!newLuckyUser) {
+              break; // prevent infinite loop
+            }
+            if (
+              input.bookingData.isFirstRecurringSlot &&
+              eventType.schedulingType === SchedulingType.ROUND_ROBIN &&
+              input.bookingData.numSlotsToCheckForAvailability &&
+              input.bookingData.allRecurringDates
+            ) {
+              // for recurring round robin events check if lucky user is available for next slots
+              try {
+                for (
+                  let i = 0;
+                  i < input.bookingData.allRecurringDates.length &&
+                  i < input.bookingData.numSlotsToCheckForAvailability;
+                  i++
+                ) {
+                  const start = input.bookingData.allRecurringDates[i].start;
+                  const end = input.bookingData.allRecurringDates[i].end;
+
+                  if (!skipAvailabilityCheck) {
+                    await ensureAvailableUsers(
+                      { ...eventTypeWithUsers, users: [newLuckyUser] },
+                      {
+                        dateFrom: dayjs(start).tz(reqBody.timeZone).format(),
+                        dateTo: dayjs(end).tz(reqBody.timeZone).format(),
+                        timeZone: reqBody.timeZone,
+                        originalRescheduledBooking,
+                      },
+                      tracingLogger,
+                      calendarFetchMode
+                    );
+                  }
+                }
+                // if no error, then lucky user is available for the next slots
+                luckyUsers.push(newLuckyUser);
+                luckUserFound = true;
+              } catch {
+                notAvailableLuckyUsers.push(newLuckyUser);
+                tracingLogger.info(
+                  `Round robin host ${newLuckyUser.name} not available for first two slots. Trying to find another host.`
+                );
+              }
+            } else {
+              luckyUsers.push(newLuckyUser);
+              luckUserFound = true;
+            }
+          }
+        }
+
+        // ALL fixed users must be available
+        if (fixedUserPool.length !== users.filter((user) => user.isFixed).length) {
+          throw new Error(ErrorCode.FixedHostsUnavailableForBooking);
+        }
+
+        const roundRobinHosts = eventType.hosts.filter((host) => !host.isFixed);
+
+        const hostGroups = groupHostsByGroupId({
+          hosts: roundRobinHosts,
+          hostGroups: eventType.hostGroups,
+        });
+
+        // Filter out host groups that have no hosts in them
+        const nonEmptyHostGroups = Object.fromEntries(
+          Object.entries(hostGroups).filter(([, hosts]) => hosts.length > 0)
+        );
+        // If there are RR hosts, we need to find a lucky user
+        if (
+          [...qualifiedRRUsers, ...additionalFallbackRRUsers].length > 0 &&
+          luckyUsers.length !== (Object.keys(nonEmptyHostGroups).length || 1)
+        ) {
+          throw new Error(ErrorCode.RoundRobinHostsUnavailableForBooking);
+        }
+
+        // Pushing fixed user before the luckyUser guarantees the (first) fixed user as the organizer.
+        users = [...fixedUserPool, ...luckyUsers];
+        luckyUserResponse = { luckyUsers: luckyUsers.map((u) => u.id) };
+        troubleshooterData = {
+          ...troubleshooterData,
+          luckyUsers: luckyUsers.map((u) => u.id),
+          fixedUsers: fixedUserPool.map((u) => u.id),
+          luckyUserPool: Object.values(luckyUserPools)
+            .flat()
+            .map((u) => u.id),
+        };
+      } catch (error) {
+        // Only "no round-robin host available" failures fall back - a required *fixed* host
+        // being unavailable (FixedHostsUnavailableForBooking) is a fundamentally different
+        // problem the fallback host must never silently paper over, since a fixed host is a
+        // mandatory attendee, not a swappable one.
+        const isRoundRobinExhausted =
+          error instanceof Error &&
+          (error.message === ErrorCode.NoAvailableUsersFound ||
+            error.message === ErrorCode.RoundRobinHostsUnavailableForBooking);
+        const fallbackHost = isRoundRobinExhausted
+          ? await resolveFallbackHost(eventTypeWithUsers, {
+              dateFrom: dayjs(reqBody.start).tz(reqBody.timeZone).format(),
+              dateTo: dayjs(reqBody.end).tz(reqBody.timeZone).format(),
+              timeZone: reqBody.timeZone,
+            })
+          : null;
+        if (!fallbackHost) {
+          throw error;
+        }
+        tracingLogger.info(
+          "Round robin pool exhausted, using event type's fallback host",
+          safeStringify({ fallbackHostId: fallbackHost.id })
+        );
+        isFallbackAssignment = true;
+        users = [fallbackHost];
+        luckyUserResponse = { luckyUsers: [fallbackHost.id] };
       }
-
-      // ALL fixed users must be available
-      if (fixedUserPool.length !== users.filter((user) => user.isFixed).length) {
-        throw new Error(ErrorCode.FixedHostsUnavailableForBooking);
-      }
-
-      const roundRobinHosts = eventType.hosts.filter((host) => !host.isFixed);
-
-      const hostGroups = groupHostsByGroupId({
-        hosts: roundRobinHosts,
-        hostGroups: eventType.hostGroups,
-      });
-
-      // Filter out host groups that have no hosts in them
-      const nonEmptyHostGroups = Object.fromEntries(
-        Object.entries(hostGroups).filter(([, hosts]) => hosts.length > 0)
-      );
-      // If there are RR hosts, we need to find a lucky user
-      if (
-        [...qualifiedRRUsers, ...additionalFallbackRRUsers].length > 0 &&
-        luckyUsers.length !== (Object.keys(nonEmptyHostGroups).length || 1)
-      ) {
-        throw new Error(ErrorCode.RoundRobinHostsUnavailableForBooking);
-      }
-
-      // Pushing fixed user before the luckyUser guarantees the (first) fixed user as the organizer.
-      users = [...fixedUserPool, ...luckyUsers];
-      luckyUserResponse = { luckyUsers: luckyUsers.map((u) => u.id) };
-      troubleshooterData = {
-        ...troubleshooterData,
-        luckyUsers: luckyUsers.map((u) => u.id),
-        fixedUsers: fixedUserPool.map((u) => u.id),
-        luckyUserPool: Object.values(luckyUserPools)
-          .flat()
-          .map((u) => u.id),
-      };
     } else if (
       input.bookingData.allRecurringDates &&
       eventType.schedulingType === SchedulingType.ROUND_ROBIN
@@ -1750,6 +1791,7 @@ async function handler(
           slug: eventTypeSlug,
           organizerUser,
           isConfirmedByDefault,
+          isFallbackAssignment,
           paymentAppData,
         },
         input: {
