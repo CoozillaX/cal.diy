@@ -111,13 +111,22 @@ const PermissionRow = ({
 
 /** Content only - the page (rendered inside the main app shell) owns the heading. Reachable by
  * owners/admins (TeamSettingsLayout hides the tab for members) - editing is owner-only, admins
- * see the same matrix read-only. */
-const PermissionsView = ({ teamId }: { teamId: number }) => {
+ * see the same matrix read-only.
+ * `asAdmin`: platform admin managing any team from /settings/admin/teams, not a member of it -
+ * see agents/rules/architecture-page-level-auth.md. Sources data from the unrestricted
+ * admin.teams endpoints and is always treated as the owner (can always edit). */
+const PermissionsView = ({ teamId, asAdmin = false }: { teamId: number; asAdmin?: boolean }) => {
   const { t } = useLocale();
   const utils = trpc.useUtils();
-  const isOwner = useIsTeamOwner(teamId);
+  const isOwner = useIsTeamOwner(teamId, asAdmin);
 
-  const { data: settings, isPending } = trpc.viewer.teams.getPermissionSettings.useQuery({ teamId });
+  const settingsQuery = trpc.viewer.teams.getPermissionSettings.useQuery({ teamId }, { enabled: !asAdmin });
+  const adminSettingsQuery = trpc.viewer.admin.teams.getPermissionSettings.useQuery(
+    { teamId },
+    { enabled: asAdmin }
+  );
+  const settings = asAdmin ? adminSettingsQuery.data : settingsQuery.data;
+  const isPending = asAdmin ? adminSettingsQuery.isPending : settingsQuery.isPending;
 
   const updateMutation = trpc.viewer.teams.updatePermissionSettings.useMutation({
     onSuccess: (data) => {
@@ -126,6 +135,16 @@ const PermissionsView = ({ teamId }: { teamId: number }) => {
     },
     onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
   });
+
+  const adminUpdateMutation = trpc.viewer.admin.teams.updatePermissionSettings.useMutation({
+    onSuccess: (data) => {
+      utils.viewer.admin.teams.getPermissionSettings.setData({ teamId }, data);
+      showToast(t("team_permissions_updated"), "success");
+    },
+    onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
+  });
+
+  const activeUpdateMutation = asAdmin ? adminUpdateMutation : updateMutation;
 
   const roleOptions: RoleOption[] = useMemo(
     () => [
@@ -146,11 +165,11 @@ const PermissionsView = ({ teamId }: { teamId: number }) => {
       permissionKey: key,
       minimumRole: key === permissionKey ? minimumRole : (settingsByKey.get(key) ?? minimumRole),
     }));
-    updateMutation.mutate({ teamId, settings: nextSettings });
+    activeUpdateMutation.mutate({ teamId, settings: nextSettings });
   };
 
   return (
-    <TeamSettingsLayout teamId={teamId}>
+    <TeamSettingsLayout teamId={teamId} asAdmin={asAdmin}>
       <div className="mb-4">
         <p className="text-sm text-subtle">
           {isOwner ? t("team_permissions_description") : t("team_permissions_owner_only_notice")}
@@ -173,7 +192,7 @@ const PermissionsView = ({ teamId }: { teamId: number }) => {
                   permissionKey={entry.key}
                   minimumRole={settingsByKey.get(entry.key) ?? entry.defaultMinimumRole}
                   roleOptions={roleOptions}
-                  disabled={!isOwner || updateMutation.isPending}
+                  disabled={!isOwner || activeUpdateMutation.isPending}
                   onChange={handleChange}
                 />
               ))}

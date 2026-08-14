@@ -17,14 +17,18 @@ type FormValues = {
 
 type ReasonOption = { value: number; label: string };
 
+/** `asAdmin`: platform admin managing any team from /settings/admin/teams, not a member of it -
+ * see agents/rules/architecture-page-level-auth.md. */
 const CreateTeamOOOModal = ({
   teamId,
   open,
   onOpenChange,
+  asAdmin = false,
 }: {
   teamId: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  asAdmin?: boolean;
 }) => {
   const { t } = useLocale();
   const utils = trpc.useUtils();
@@ -46,15 +50,27 @@ const CreateTeamOOOModal = ({
     },
   });
 
+  const onCreateSuccess = async () => {
+    await Promise.all([
+      utils.viewer.teams.oooList.invalidate({ teamId }),
+      utils.viewer.admin.teams.oooList.invalidate({ teamId }),
+    ]);
+    showToast(t("team_time_off_created"), "success");
+    reset();
+    onOpenChange(false);
+  };
+
   const createMutation = trpc.viewer.teams.oooCreate.useMutation({
-    onSuccess: async () => {
-      await utils.viewer.teams.oooList.invalidate({ teamId });
-      showToast(t("team_time_off_created"), "success");
-      reset();
-      onOpenChange(false);
-    },
+    onSuccess: onCreateSuccess,
     onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
   });
+
+  const adminCreateMutation = trpc.viewer.admin.teams.oooCreate.useMutation({
+    onSuccess: onCreateSuccess,
+    onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
+  });
+
+  const activeCreateMutation = asAdmin ? adminCreateMutation : createMutation;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -67,7 +83,7 @@ const CreateTeamOOOModal = ({
               showToast(t("end_date_not_selected"), "error");
               return;
             }
-            createMutation.mutate({
+            activeCreateMutation.mutate({
               teamId,
               start: values.dateRange.startDate,
               end: values.dateRange.endDate,
@@ -123,7 +139,7 @@ const CreateTeamOOOModal = ({
             <Button type="button" color="minimal" onClick={() => onOpenChange(false)}>
               {t("cancel")}
             </Button>
-            <Button form="create-team-ooo-form" type="submit" loading={createMutation.isPending}>
+            <Button form="create-team-ooo-form" type="submit" loading={activeCreateMutation.isPending}>
               {t("add")}
             </Button>
           </DialogFooter>

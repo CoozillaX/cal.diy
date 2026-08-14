@@ -57,15 +57,29 @@ const getFlagEmoji = (countryCode: string): string | null => {
   return String.fromCodePoint(...codePoints);
 };
 
-const TeamHolidaysSection = ({ teamId, canManage }: { teamId: number; canManage: boolean }) => {
+/** `asAdmin`: platform admin managing any team from /settings/admin/teams, not a member of it -
+ * see agents/rules/architecture-page-level-auth.md. */
+const TeamHolidaysSection = ({
+  teamId,
+  canManage,
+  asAdmin = false,
+}: {
+  teamId: number;
+  canManage: boolean;
+  asAdmin?: boolean;
+}) => {
   const { t } = useLocale();
   const utils = trpc.useUtils();
 
   const { data: countries, isLoading: isLoadingCountries } =
     trpc.viewer.holidays.getSupportedCountries.useQuery();
-  const { data: settings, isLoading: isLoadingSettings } = trpc.viewer.teams.holidaySettings.useQuery({
-    teamId,
-  });
+  const settingsQuery = trpc.viewer.teams.holidaySettings.useQuery({ teamId }, { enabled: !asAdmin });
+  const adminSettingsQuery = trpc.viewer.admin.teams.holidaySettings.useQuery(
+    { teamId },
+    { enabled: asAdmin }
+  );
+  const settings = asAdmin ? adminSettingsQuery.data : settingsQuery.data;
+  const isLoadingSettings = asAdmin ? adminSettingsQuery.isPending : settingsQuery.isPending;
 
   const countryOptions: CountryOption[] = useMemo(
     () => [
@@ -81,18 +95,40 @@ const TeamHolidaysSection = ({ teamId, canManage }: { teamId: number; canManage:
   const selectedCountry =
     countryOptions.find((option) => option.value === (settings?.countryCode || "")) || countryOptions[0];
 
+  const invalidateSettings = () =>
+    Promise.all([
+      utils.viewer.teams.holidaySettings.invalidate({ teamId }),
+      utils.viewer.admin.teams.holidaySettings.invalidate({ teamId }),
+    ]);
+
   const updateSettingsMutation = trpc.viewer.teams.holidayUpdateSettings.useMutation({
-    onSuccess: () => {
-      utils.viewer.teams.holidaySettings.invalidate({ teamId });
+    onSuccess: async () => {
+      await invalidateSettings();
+      showToast(t("holiday_settings_updated"), "success");
+    },
+    onError: () => showToast(t("error_updating_settings"), "error"),
+  });
+
+  const adminUpdateSettingsMutation = trpc.viewer.admin.teams.holidayUpdateSettings.useMutation({
+    onSuccess: async () => {
+      await invalidateSettings();
       showToast(t("holiday_settings_updated"), "success");
     },
     onError: () => showToast(t("error_updating_settings"), "error"),
   });
 
   const toggleHolidayMutation = trpc.viewer.teams.holidayToggle.useMutation({
-    onSuccess: () => utils.viewer.teams.holidaySettings.invalidate({ teamId }),
+    onSuccess: invalidateSettings,
     onError: () => showToast(t("error_updating_settings"), "error"),
   });
+
+  const adminToggleHolidayMutation = trpc.viewer.admin.teams.holidayToggle.useMutation({
+    onSuccess: invalidateSettings,
+    onError: () => showToast(t("error_updating_settings"), "error"),
+  });
+
+  const activeUpdateSettingsMutation = asAdmin ? adminUpdateSettingsMutation : updateSettingsMutation;
+  const activeToggleHolidayMutation = asAdmin ? adminToggleHolidayMutation : toggleHolidayMutation;
 
   const isLoading = isLoadingCountries || isLoadingSettings;
 
@@ -126,8 +162,10 @@ const TeamHolidaysSection = ({ teamId, canManage }: { teamId: number; canManage:
             key={holiday.id}
             holiday={holiday}
             canManage={canManage}
-            disabled={toggleHolidayMutation.isPending}
-            onToggle={(holidayId, enabled) => toggleHolidayMutation.mutate({ teamId, holidayId, enabled })}
+            disabled={activeToggleHolidayMutation.isPending}
+            onToggle={(holidayId, enabled) =>
+              activeToggleHolidayMutation.mutate({ teamId, holidayId, enabled })
+            }
           />
         ))}
       </div>
@@ -149,7 +187,7 @@ const TeamHolidaysSection = ({ teamId, canManage }: { teamId: number; canManage:
             isDisabled={!canManage}
             value={selectedCountry}
             onChange={(option) =>
-              updateSettingsMutation.mutate({
+              activeUpdateSettingsMutation.mutate({
                 teamId,
                 countryCode: option?.value || null,
                 resetDisabledHolidays: true,

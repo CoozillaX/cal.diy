@@ -8,16 +8,42 @@ import { EmptyScreen } from "@calcom/ui/components/empty-screen";
 import { SkeletonContainer, SkeletonText } from "@calcom/ui/components/skeleton";
 import { showToast } from "@calcom/ui/components/toast";
 
-const TeamOOOEntriesList = ({ teamId, canManage }: { teamId: number; canManage: boolean }) => {
+/** `asAdmin`: platform admin managing any team from /settings/admin/teams, not a member of it -
+ * see agents/rules/architecture-page-level-auth.md. */
+const TeamOOOEntriesList = ({
+  teamId,
+  canManage,
+  asAdmin = false,
+}: {
+  teamId: number;
+  canManage: boolean;
+  asAdmin?: boolean;
+}) => {
   const { t } = useLocale();
   const utils = trpc.useUtils();
 
-  const { data: entries, isPending } = trpc.viewer.teams.oooList.useQuery({ teamId });
+  const listQuery = trpc.viewer.teams.oooList.useQuery({ teamId }, { enabled: !asAdmin });
+  const adminListQuery = trpc.viewer.admin.teams.oooList.useQuery({ teamId }, { enabled: asAdmin });
+  const entries = asAdmin ? adminListQuery.data : listQuery.data;
+  const isPending = asAdmin ? adminListQuery.isPending : listQuery.isPending;
+
+  const invalidate = () =>
+    Promise.all([
+      utils.viewer.teams.oooList.invalidate({ teamId }),
+      utils.viewer.admin.teams.oooList.invalidate({ teamId }),
+    ]);
 
   const deleteMutation = trpc.viewer.teams.oooDelete.useMutation({
-    onSuccess: () => utils.viewer.teams.oooList.invalidate({ teamId }),
+    onSuccess: invalidate,
     onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
   });
+
+  const adminDeleteMutation = trpc.viewer.admin.teams.oooDelete.useMutation({
+    onSuccess: invalidate,
+    onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
+  });
+
+  const activeDeleteMutation = asAdmin ? adminDeleteMutation : deleteMutation;
 
   if (isPending) {
     return (
@@ -61,8 +87,8 @@ const TeamOOOEntriesList = ({ teamId, canManage }: { teamId: number; canManage: 
               color="minimal"
               variant="icon"
               StartIcon="trash-2"
-              disabled={deleteMutation.isPending}
-              onClick={() => deleteMutation.mutate({ teamId, id: entry.id })}
+              disabled={activeDeleteMutation.isPending}
+              onClick={() => activeDeleteMutation.mutate({ teamId, id: entry.id })}
               aria-label={t("delete")}
             />
           )}

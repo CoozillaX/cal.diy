@@ -7,8 +7,7 @@ type Props = {
   teamId: number;
   children: React.ReactNode;
   /** Platform-admin managing any team from /settings/admin/teams, not a member of this one -
-   * see agents/rules/architecture-page-level-auth.md. Points tabs at the admin routes and drops
-   * time-off/permissions, which don't have an admin-unrestricted backend yet. */
+   * see agents/rules/architecture-page-level-auth.md. Points tabs at the admin routes instead. */
   asAdmin?: boolean;
 };
 
@@ -20,13 +19,9 @@ type Props = {
 // so members can see what's there without being able to change it.
 const useTeamTabs = (teamId: number, asAdmin: boolean): VerticalTabItemProps[] => {
   const basePath = asAdmin ? `/settings/admin/teams/${teamId}/edit` : `/teams/${teamId}/edit`;
-  const tabs: VerticalTabItemProps[] = [
+  return [
     { name: "profile", href: `${basePath}/profile`, icon: "user" as const },
     { name: "members", href: `${basePath}/members`, icon: "users" as const },
-  ];
-  if (asAdmin) return tabs;
-  return [
-    ...tabs,
     { name: "time_off", href: `${basePath}/time-off`, icon: "calendar-x-2" as const },
     { name: "permissions", href: `${basePath}/permissions`, icon: "lock" as const },
   ];
