@@ -1,12 +1,10 @@
 "use client";
 
-import { useState } from "react";
-
 import { trpc } from "@calcom/trpc/react";
-import { TextField } from "@calcom/ui/components/form";
 import { Button } from "@calcom/ui/components/button";
+import { TextField } from "@calcom/ui/components/form";
 import { showToast } from "@calcom/ui/components/toast";
-
+import { useState } from "react";
 import UsersTable from "./components/UsersTable";
 
 export default function LockedSMSView() {
@@ -43,7 +41,6 @@ export default function LockedSMSView() {
           <TextField
             name="Lock User"
             placeholder="username"
-            defaultValue=""
             onChange={(event) => setUsername(event.target.value)}
             value={username}
           />
@@ -61,7 +58,6 @@ export default function LockedSMSView() {
           <TextField
             name="Lock Team"
             placeholder="team slug"
-            defaultValue=""
             onChange={(event) => {
               setTeamSlug(event.target.value);
             }}

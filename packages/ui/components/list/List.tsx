@@ -1,9 +1,7 @@
-import Link from "next/link";
-import { createElement } from "react";
-
 import { useLocale } from "@calcom/lib/hooks/useLocale";
 import classNames from "@calcom/ui/classNames";
-
+import Link from "next/link";
+import { createElement } from "react";
 import { Badge } from "../badge";
 
 export type ListProps = {
@@ -13,19 +11,19 @@ export type ListProps = {
 } & JSX.IntrinsicElements["ul"];
 
 export function List(props: ListProps) {
+  const { roundContainer, noBorderTreatment, className, children, ...passThroughProps } = props;
   return (
     <ul
       data-testid="list"
-      {...props}
+      {...passThroughProps}
       className={classNames(
         "mx-0 rounded-sm sm:overflow-hidden ",
         // Add rounded top and bottom if roundContainer is true
-        props.roundContainer && "[&>*:first-child]:rounded-t-md [&>*:last-child]:rounded-b-md ",
-        !props.noBorderTreatment &&
-          "border-subtle divide-subtle divide-y rounded-md border border-l border-r ",
-        props.className
+        roundContainer && "[&>*:first-child]:rounded-t-md [&>*:last-child]:rounded-b-md ",
+        !noBorderTreatment && "border-subtle divide-subtle divide-y rounded-md border border-l border-r ",
+        className
       )}>
-      {props.children}
+      {children}
     </ul>
   );
 }
@@ -56,13 +54,7 @@ export function ListItem(props: ListItemProps) {
     props.children
   );
 
-  return href ? (
-    <Link href={href}>
-      {element}
-    </Link>
-  ) : (
-    element
-  );
+  return href ? <Link href={href}>{element}</Link> : element;
 }
 
 export type ListLinkItemProps = {
