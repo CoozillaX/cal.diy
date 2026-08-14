@@ -289,15 +289,18 @@ type RowToRender<TData> = {
 };
 
 function SeparatorRowRenderer({ separator, className }: { separator: SeparatorRow; className?: string }) {
+  // A <td> (TableCell), not a <div> - it's rendered as the sole child of a TableRow (<tr>), and
+  // <tr> may only contain <td>/<th> children in valid HTML, even though the row layout is
+  // flexbox-driven rather than a native table layout.
   return (
-    <div
+    <TableCell
       className={classNames(
         "bg-cal-muted text-emphasis w-full px-3 py-2 font-semibold",
         separator.className,
         className
       )}>
       {separator.label}
-    </div>
+    </TableCell>
   );
 }
 

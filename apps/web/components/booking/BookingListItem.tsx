@@ -328,15 +328,29 @@ function BookingListItem(booking: BookingItemProps) {
                   <div>
                     {(provider?.label ||
                       (typeof locationToDisplay === "string" && locationToDisplay?.startsWith("https://"))) &&
-                      locationToDisplay.startsWith("http") && (
-                        <a
-                          href={locationToDisplay}
-                          onClick={(e) => e.stopPropagation()}
-                          target="_blank"
-                          title={locationToDisplay}
-                          rel="noreferrer"
-                          className="text-sm leading-6 text-blue-600 hover:underline dark:text-blue-400">
-                          <div className="flex items-center gap-2">
+                      locationToDisplay.startsWith("http") &&
+                      (() => {
+                        // Not a real <a href> - this sits inside the row's own ConditionalLink,
+                        // which is itself an <a> when no onClick is provided, and an <a> can never
+                        // contain another <a> (invalid HTML, breaks hydration). window.open with
+                        // noopener,noreferrer replicates target="_blank" rel="noreferrer".
+                        const openLocationLink = (e: React.SyntheticEvent) => {
+                          e.stopPropagation();
+                          window.open(locationToDisplay, "_blank", "noopener,noreferrer");
+                        };
+                        return (
+                          <div
+                            role="link"
+                            tabIndex={0}
+                            title={locationToDisplay}
+                            onClick={openLocationLink}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                openLocationLink(e);
+                              }
+                            }}
+                            className="flex cursor-pointer items-center gap-2 text-sm leading-6 text-blue-600 hover:underline dark:text-blue-400">
                             {provider?.iconUrl && (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
@@ -351,8 +365,8 @@ function BookingListItem(booking: BookingItemProps) {
                               ? t("join_event_location", { eventLocationType: provider?.label })
                               : t("join_meeting")}
                           </div>
-                        </a>
-                      )}
+                        );
+                      })()}
                   </div>
                 )}
               </div>
@@ -465,15 +479,26 @@ function BookingListItem(booking: BookingItemProps) {
                 <div className="sm:hidden">
                   {(provider?.label ||
                     (typeof locationToDisplay === "string" && locationToDisplay?.startsWith("https://"))) &&
-                    locationToDisplay.startsWith("http") && (
-                      <a
-                        href={locationToDisplay}
-                        onClick={(e) => e.stopPropagation()}
-                        target="_blank"
-                        title={locationToDisplay}
-                        rel="noreferrer"
-                        className="text-sm leading-6 text-blue-600 hover:underline dark:text-blue-400">
-                        <div className="flex items-center gap-2">
+                    locationToDisplay.startsWith("http") &&
+                    (() => {
+                      // Not a real <a href> - see the desktop copy of this block above for why.
+                      const openLocationLink = (e: React.SyntheticEvent) => {
+                        e.stopPropagation();
+                        window.open(locationToDisplay, "_blank", "noopener,noreferrer");
+                      };
+                      return (
+                        <div
+                          role="link"
+                          tabIndex={0}
+                          title={locationToDisplay}
+                          onClick={openLocationLink}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              openLocationLink(e);
+                            }
+                          }}
+                          className="flex cursor-pointer items-center gap-2 text-sm leading-6 text-blue-600 hover:underline dark:text-blue-400">
                           {provider?.iconUrl && (
                             <img
                               src={provider.iconUrl}
@@ -487,8 +512,8 @@ function BookingListItem(booking: BookingItemProps) {
                             ? t("join_event_location", { eventLocationType: provider?.label })
                             : t("join_meeting")}
                         </div>
-                      </a>
-                    )}
+                      );
+                    })()}
                 </div>
               )}
               {isCancelled && booking.rescheduled && (
@@ -793,14 +818,29 @@ const FirstAttendee = ({
   if (hideOrganizerEmail) {
     return <span className="inline-block">{user.name || ""}</span>;
   }
+  // Not a real <a href="mailto:"> - this renders inside the row's own ConditionalLink, which is
+  // itself an <a> when no onClick is provided, and an <a> can never contain another <a> (invalid
+  // HTML, breaks hydration). A clickable span with the same keyboard/mouse affordances gets the
+  // same "click to email" behavior without nesting.
+  const openMailClient = (e: React.SyntheticEvent) => {
+    e.stopPropagation();
+    window.location.href = `mailto:${user.email}`;
+  };
   return (
-    <a
+    <span
       key={user.email}
-      className="hover:text-blue-500"
-      href={`mailto:${user.email}`}
-      onClick={(e) => e.stopPropagation()}>
+      role="link"
+      tabIndex={0}
+      className="hover:text-blue-500 cursor-pointer"
+      onClick={openMailClient}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          openMailClient(e);
+        }
+      }}>
       {user.name || user.email}
-    </a>
+    </span>
   );
 };
 
