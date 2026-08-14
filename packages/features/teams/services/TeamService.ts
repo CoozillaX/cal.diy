@@ -315,6 +315,76 @@ export class TeamService {
     return this.deps.membershipRepository.delete({ userId, teamId });
   }
 
+  // --- Platform-admin operations -------------------------------------------------------
+  // These bypass the membership assertions above by design: the caller is a platform
+  // UserPermissionRole.ADMIN acting outside any specific team, not a team member. The tRPC
+  // router gates every one of these with authedAdminProcedure - that is the authorization
+  // boundary, so no membership check belongs here (see agents/rules/patterns-factory-pattern.md).
+
+  async adminListTeams({
+    searchTerm,
+    cursor,
+    limit,
+  }: {
+    searchTerm?: string | null;
+    cursor?: number | null;
+    limit: number;
+  }) {
+    return this.deps.teamRepository.listAllPaginated({ searchTerm, cursor, limit });
+  }
+
+  async adminGetTeam({ teamId }: { teamId: number }) {
+    const team = await this.deps.teamRepository.findById({ id: teamId });
+    if (!team) {
+      throw ErrorWithCode.Factory.TeamNotFound(`Team ${teamId} not found`);
+    }
+
+    const members = await this.deps.membershipRepository.findMembershipsWithUserByTeamId({ teamId });
+    return { ...team, members };
+  }
+
+  async adminUpdateTeam({ teamId, data }: { teamId: number; data: TeamUpdateData }) {
+    if (typeof data.slug === "string") {
+      const isAvailable = await this.deps.teamRepository.isSlugAvailable({
+        slug: data.slug,
+        excludeTeamId: teamId,
+      });
+      if (!isAvailable) {
+        throw ErrorWithCode.Factory.TeamSlugTaken(
+          `Unable to update team: slug "${data.slug}" is already taken`
+        );
+      }
+    }
+
+    return this.deps.teamRepository.update({ id: teamId, data });
+  }
+
+  async adminDeleteTeam({ teamId }: { teamId: number }) {
+    return this.deps.teamRepository.delete({ id: teamId });
+  }
+
+  async adminAddMember({ teamId, userId, role }: { teamId: number; userId: number; role: MembershipRole }) {
+    const existing = await this.deps.membershipRepository.findUniqueByUserIdAndTeamId({ teamId, userId });
+    if (existing) {
+      throw ErrorWithCode.Factory.BadRequest(`User ${userId} is already a member of team ${teamId}`);
+    }
+
+    return MembershipRepository.create({ teamId, userId, role, accepted: true });
+  }
+
+  async adminRemoveMember({ teamId, userId }: { teamId: number; userId: number }) {
+    const membership = await this.deps.membershipRepository.findUniqueByUserIdAndTeamId({ teamId, userId });
+    if (!membership) {
+      throw ErrorWithCode.Factory.NotFound(`User ${userId} is not a member of team ${teamId}`);
+    }
+
+    if (membership.role === MembershipRole.OWNER) {
+      await this.assertNotLastOwner({ teamId });
+    }
+
+    return this.deps.membershipRepository.delete({ userId, teamId });
+  }
+
   private async assertNotLastOwner({ teamId }: { teamId: number }) {
     const ownerCount = await this.deps.membershipRepository.countByTeamIdAndRole({
       teamId,

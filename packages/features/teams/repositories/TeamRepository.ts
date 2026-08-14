@@ -107,6 +107,70 @@ export class TeamRepository {
     return { token };
   }
 
+  /**
+   * Platform-admin-wide listing across every team, regardless of the caller's own memberships.
+   * Callers must gate access with authedAdminProcedure - this method does no authorization.
+   * Organizations are excluded; they have their own dedicated admin management UI.
+   */
+  async listAllPaginated({
+    searchTerm,
+    cursor,
+    limit,
+  }: {
+    searchTerm?: string | null;
+    cursor?: number | null;
+    limit: number;
+  }) {
+    const trimmedSearchTerm = searchTerm?.trim();
+    const where: Prisma.TeamWhereInput = {
+      isOrganization: false,
+      ...(trimmedSearchTerm
+        ? {
+            OR: [
+              { name: { contains: trimmedSearchTerm, mode: "insensitive" } },
+              { slug: { contains: trimmedSearchTerm, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+    };
+
+    const teams = await this.prismaClient.team.findMany({
+      where,
+      cursor: cursor ? { id: cursor } : undefined,
+      skip: cursor ? 1 : 0,
+      take: limit + 1, // +1 lets us detect "has more" for the cursor
+      orderBy: { id: "asc" },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        logoUrl: true,
+        createdAt: true,
+        _count: { select: { members: { where: { accepted: true } } } },
+        members: {
+          where: { role: MembershipRole.OWNER },
+          take: 1,
+          select: { user: { select: { id: true, name: true, email: true } } },
+        },
+      },
+    });
+
+    const total = await this.prismaClient.team.count({ where });
+    const hasMore = teams.length > limit;
+    const items = hasMore ? teams.slice(0, limit) : teams;
+    const nextCursor = hasMore ? items[items.length - 1].id : undefined;
+
+    return {
+      teams: items.map(({ members, _count, ...team }) => ({
+        ...team,
+        memberCount: _count.members,
+        owner: members[0]?.user ?? null,
+      })),
+      nextCursor,
+      total,
+    };
+  }
+
   async update({ id, data }: { id: number; data: TeamUpdateData }): Promise<TeamDTO> {
     return this.prismaClient.team.update({
       where: { id },
