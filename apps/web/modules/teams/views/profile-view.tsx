@@ -23,22 +23,31 @@ type FormValues = { name: string; logoUrl: string | null };
 
 /** Content only - the page (rendered inside the main app shell) owns the heading. Any member
  * can reach this tab (TeamSettingsLayout no longer hides it) - the name/logo form and save
- * button are disabled below for non-admin/owner members instead. */
-const ProfileView = ({ teamId }: { teamId: number }) => {
+ * button are disabled below for non-admin/owner members instead.
+ * `asAdmin`: platform admin managing any team from /settings/admin/teams, not a member of it -
+ * see agents/rules/architecture-page-level-auth.md. Sources data from the unrestricted
+ * admin.teams endpoints, can always manage, and the danger zone always offers delete (never
+ * "leave", since the admin was never a member to begin with). */
+const ProfileView = ({ teamId, asAdmin = false }: { teamId: number; asAdmin?: boolean }) => {
   const { t } = useLocale();
   const router = useRouter();
   const utils = trpc.useUtils();
   const { data: sessionData } = useSession();
-  const canManage = useCanManageTeam(teamId);
+  const canManage = useCanManageTeam(teamId, asAdmin);
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const form = useForm<FormValues>({ defaultValues: { name: "", logoUrl: null } });
 
-  const { data: team, isPending } = trpc.viewer.teams.get.useQuery({ teamId });
-  const { data: members } = trpc.viewer.teams.listMembers.useQuery({ teamId });
+  const teamQuery = trpc.viewer.teams.get.useQuery({ teamId }, { enabled: !asAdmin });
+  const membersQuery = trpc.viewer.teams.listMembers.useQuery({ teamId }, { enabled: !asAdmin });
+  const adminTeamQuery = trpc.viewer.admin.teams.get.useQuery({ teamId }, { enabled: asAdmin });
+
+  const team = asAdmin ? adminTeamQuery.data : teamQuery.data;
+  const members = asAdmin ? adminTeamQuery.data?.members : membersQuery.data;
+  const isPending = asAdmin ? adminTeamQuery.isPending : teamQuery.isPending;
 
   const currentUserId = sessionData?.user?.id;
   const currentUserMembership = members?.find((member) => member.user.id === currentUserId);
-  const isOwner = currentUserMembership?.role === MembershipRole.OWNER;
+  const isOwner = asAdmin || currentUserMembership?.role === MembershipRole.OWNER;
 
   useEffect(() => {
     if (team) {
@@ -57,9 +66,25 @@ const ProfileView = ({ teamId }: { teamId: number }) => {
     onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
   });
 
-  const goToTeamsList = () => router.push("/teams");
+  const adminUpdateMutation = trpc.viewer.admin.teams.update.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.viewer.admin.teams.get.invalidate({ teamId }),
+        utils.viewer.admin.teams.list.invalidate(),
+      ]);
+      showToast(t("team_updated_successfully"), "success");
+    },
+    onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
+  });
+
+  const goToTeamsList = () => router.push(asAdmin ? "/settings/admin/teams" : "/teams");
 
   const deleteMutation = trpc.viewer.teams.delete.useMutation({
+    onSuccess: goToTeamsList,
+    onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
+  });
+
+  const adminDeleteMutation = trpc.viewer.admin.teams.delete.useMutation({
     onSuccess: goToTeamsList,
     onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
   });
@@ -69,14 +94,22 @@ const ProfileView = ({ teamId }: { teamId: number }) => {
     onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
   });
 
+  const activeDeleteMutation = asAdmin ? adminDeleteMutation : deleteMutation;
+
   return (
-    <TeamSettingsLayout teamId={teamId}>
+    <TeamSettingsLayout teamId={teamId} asAdmin={asAdmin}>
       {isPending ? (
         <SkeletonContainer>
           <SkeletonText className="h-8 w-full" />
         </SkeletonContainer>
       ) : (
-        <Form form={form} handleSubmit={(values) => updateMutation.mutate({ id: teamId, ...values })}>
+        <Form
+          form={form}
+          handleSubmit={(values) =>
+            asAdmin
+              ? adminUpdateMutation.mutate({ teamId, ...values })
+              : updateMutation.mutate({ id: teamId, ...values })
+          }>
           <div className="rounded-t-lg border border-subtle px-4 pt-8 pb-10 sm:px-6">
             <Controller
               control={form.control}
@@ -114,7 +147,7 @@ const ProfileView = ({ teamId }: { teamId: number }) => {
           <SectionBottomActions align="end">
             <Button
               type="submit"
-              loading={updateMutation.isPending}
+              loading={asAdmin ? adminUpdateMutation.isPending : updateMutation.isPending}
               disabled={!canManage}
               tooltip={!canManage ? t("team_permission_denied_tooltip") : undefined}>
               {t("save")}
@@ -123,7 +156,7 @@ const ProfileView = ({ teamId }: { teamId: number }) => {
         </Form>
       )}
 
-      {currentUserMembership && (
+      {(asAdmin || currentUserMembership) && (
         <>
           <div className="mt-6 rounded-lg rounded-b-none border border-subtle border-b-0 p-6">
             <Label className="mb-0 font-semibold text-base text-red-700">{t("danger_zone")}</Label>
@@ -141,10 +174,10 @@ const ProfileView = ({ teamId }: { teamId: number }) => {
               variety="danger"
               title={isOwner ? t("disband_team") : t("leave_team")}
               confirmBtnText={isOwner ? t("disband_team") : t("confirm_leave_team")}
-              isPending={isOwner ? deleteMutation.isPending : leaveMutation.isPending}
+              isPending={isOwner ? activeDeleteMutation.isPending : leaveMutation.isPending}
               onConfirm={() => {
                 if (isOwner) {
-                  deleteMutation.mutate({ teamId });
+                  activeDeleteMutation.mutate({ teamId });
                 } else {
                   leaveMutation.mutate({ teamId });
                 }

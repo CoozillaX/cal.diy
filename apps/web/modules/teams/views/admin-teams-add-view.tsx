@@ -16,7 +16,7 @@ export default function AdminTeamsAddView() {
     onSuccess: async (team) => {
       showToast(t("team_added_successfully"), "success");
       await utils.viewer.admin.teams.list.invalidate();
-      router.replace(`/settings/admin/teams/${team.id}/edit`);
+      router.replace(`/settings/admin/teams/${team.id}/edit/profile`);
     },
     onError: (err) => {
       console.error(err.message);

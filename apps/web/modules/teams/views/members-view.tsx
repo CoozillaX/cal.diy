@@ -16,19 +16,25 @@ import { useCanManageTeam } from "~/teams/hooks/useCanManageTeam";
 const ADMIN_ROLES: MembershipRole[] = [MembershipRole.OWNER, MembershipRole.ADMIN];
 
 /** Content only - the page (rendered inside the main app shell, not the settings shell)
- * owns the heading and renders MembersCTA separately as the shell's CTA slot. */
-const MembersView = ({ teamId }: { teamId: number }) => {
+ * owns the heading and renders MembersCTA separately as the shell's CTA slot.
+ * `asAdmin`: platform admin managing any team from /settings/admin/teams - see
+ * agents/rules/architecture-page-level-auth.md. Sources the roster from the unrestricted
+ * admin.teams endpoint instead of the membership-gated one, and can always manage. */
+const MembersView = ({ teamId, asAdmin = false }: { teamId: number; asAdmin?: boolean }) => {
   const { t } = useLocale();
   const { data: sessionData } = useSession();
 
-  const { data: members, isPending } = trpc.viewer.teams.listMembers.useQuery({ teamId });
+  const memberQuery = trpc.viewer.teams.listMembers.useQuery({ teamId }, { enabled: !asAdmin });
+  const adminMemberQuery = trpc.viewer.admin.teams.listMembers.useQuery({ teamId }, { enabled: asAdmin });
+  const members = asAdmin ? adminMemberQuery.data : memberQuery.data;
+  const isPending = asAdmin ? adminMemberQuery.isPending : memberQuery.isPending;
 
   const currentUserId = sessionData?.user?.id;
   const currentUserMembership = members?.find((member) => member.user.id === currentUserId);
-  const canManage = !!currentUserMembership && ADMIN_ROLES.includes(currentUserMembership.role);
+  const canManage = asAdmin || (!!currentUserMembership && ADMIN_ROLES.includes(currentUserMembership.role));
 
   return (
-    <TeamSettingsLayout teamId={teamId}>
+    <TeamSettingsLayout teamId={teamId} asAdmin={asAdmin}>
       {isPending && (
         <SkeletonContainer>
           <SkeletonText className="mb-4 h-8 w-full" />
@@ -54,6 +60,7 @@ const MembersView = ({ teamId }: { teamId: number }) => {
               canManage={canManage}
               isSelf={member.user.id === currentUserId}
               lastItem={index === members.length - 1}
+              asAdmin={asAdmin}
             />
           ))}
         </div>
@@ -62,9 +69,9 @@ const MembersView = ({ teamId }: { teamId: number }) => {
   );
 };
 
-export const MembersCTA = ({ teamId }: { teamId: number }) => {
+export const MembersCTA = ({ teamId, asAdmin = false }: { teamId: number; asAdmin?: boolean }) => {
   const { t } = useLocale();
-  const canManage = useCanManageTeam(teamId);
+  const canManage = useCanManageTeam(teamId, asAdmin);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
 
   if (!canManage) return null;
@@ -72,9 +79,14 @@ export const MembersCTA = ({ teamId }: { teamId: number }) => {
   return (
     <>
       <Button color="primary" StartIcon="plus" onClick={() => setInviteDialogOpen(true)}>
-        {t("invite")}
+        {t(asAdmin ? "add_member" : "invite")}
       </Button>
-      <InviteMemberDialog teamId={teamId} open={inviteDialogOpen} onOpenChange={setInviteDialogOpen} />
+      <InviteMemberDialog
+        teamId={teamId}
+        open={inviteDialogOpen}
+        onOpenChange={setInviteDialogOpen}
+        asAdmin={asAdmin}
+      />
     </>
   );
 };

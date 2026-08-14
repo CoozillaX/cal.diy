@@ -114,7 +114,7 @@ export function AdminTeamsTable() {
                         {
                           id: "edit",
                           label: t("edit"),
-                          href: `/settings/admin/teams/${team.id}/edit`,
+                          href: `/settings/admin/teams/${team.id}/edit/profile`,
                           icon: "pencil" as const,
                         },
                         {

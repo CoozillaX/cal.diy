@@ -32,20 +32,36 @@ const MemberListItem = ({
   canManage,
   isSelf,
   lastItem,
+  asAdmin = false,
 }: {
   teamId: number;
   member: Member;
   canManage: boolean;
   isSelf: boolean;
   lastItem: boolean;
+  /** See agents/rules/architecture-page-level-auth.md - routes role/remove mutations through the
+   * unrestricted admin.teams endpoints instead of the membership-gated teams ones. */
+  asAdmin?: boolean;
 }) => {
   const { t } = useLocale();
   const utils = trpc.useUtils();
   const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 
-  const invalidateMembers = () => utils.viewer.teams.listMembers.invalidate({ teamId });
+  const invalidateMembers = () =>
+    Promise.all([
+      utils.viewer.teams.listMembers.invalidate({ teamId }),
+      utils.viewer.admin.teams.listMembers.invalidate({ teamId }),
+    ]);
 
   const changeRoleMutation = trpc.viewer.teams.changeMemberRole.useMutation({
+    onSuccess: async () => {
+      await invalidateMembers();
+      showToast(t("role_updated_successfully"), "success");
+    },
+    onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
+  });
+
+  const adminChangeRoleMutation = trpc.viewer.admin.teams.changeMemberRole.useMutation({
     onSuccess: async () => {
       await invalidateMembers();
       showToast(t("role_updated_successfully"), "success");
@@ -60,6 +76,17 @@ const MemberListItem = ({
     },
     onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
   });
+
+  const adminRemoveMutation = trpc.viewer.admin.teams.removeMember.useMutation({
+    onSuccess: async () => {
+      await invalidateMembers();
+      showToast(t("member_removed"), "success");
+    },
+    onError: (err) => showToast(err.message || t("something_went_wrong"), "error"),
+  });
+
+  const activeChangeRoleMutation = asAdmin ? adminChangeRoleMutation : changeRoleMutation;
+  const activeRemoveMutation = asAdmin ? adminRemoveMutation : removeMutation;
 
   const canModifyThisMember = canManage && !isSelf;
 
@@ -101,8 +128,10 @@ const MemberListItem = ({
                 <DropdownMenuItem key={role}>
                   <DropdownItem
                     type="button"
-                    disabled={role === member.role || changeRoleMutation.isPending}
-                    onClick={() => changeRoleMutation.mutate({ teamId, memberId: member.user.id, role })}>
+                    disabled={role === member.role || activeChangeRoleMutation.isPending}
+                    onClick={() =>
+                      activeChangeRoleMutation.mutate({ teamId, memberId: member.user.id, role })
+                    }>
                     {t(role.toLowerCase())}
                   </DropdownItem>
                 </DropdownMenuItem>
@@ -127,9 +156,9 @@ const MemberListItem = ({
           variety="danger"
           title={t("remove")}
           confirmBtnText={t("remove")}
-          isPending={removeMutation.isPending}
+          isPending={activeRemoveMutation.isPending}
           onConfirm={() => {
-            removeMutation.mutate({ teamId, memberId: member.user.id });
+            activeRemoveMutation.mutate({ teamId, memberId: member.user.id });
             setRemoveDialogOpen(false);
           }}>
           <p className="text-sm text-subtle">{member.user.email}</p>
