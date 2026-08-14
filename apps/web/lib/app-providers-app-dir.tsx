@@ -13,6 +13,7 @@ import type { Session } from "next-auth";
 import { useSession } from "next-auth/react";
 import { ThemeProvider } from "next-themes";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { useEffect, useState } from "react";
 import { getThemeProviderProps } from "./getThemeProviderProps";
 
 // Workaround for https://github.com/vercel/next.js/issues/8592
@@ -65,11 +66,19 @@ const CalcomThemeProvider = (props: CalcomThemeProps) => {
     searchParams,
   });
 
+  // `typeof window !== "undefined"` as a render branch is always true on hydration's first client
+  // pass (window already exists then) but false on the server, so this child's presence/position
+  // never matches the server-rendered tree - guaranteed hydration mismatch. `mounted` starts false
+  // on both server and the first client render (matching), then flips true only after hydration
+  // commits, via the effect below - the standard "client-only" pattern.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
   return (
     <ThemeProvider key={key} {...themeProviderProps}>
       {/* Embed Mode can be detected reliably only on client side here as there can be static generated pages as well which can't determine if it's embed mode at backend */}
       {/* color-scheme makes background:transparent not work in iframe which is required by embed. */}
-      {typeof window !== "undefined" && !isEmbedMode && (
+      {mounted && !isEmbedMode && (
         // Plain <style> + dangerouslySetInnerHTML, not styled-jsx's <style jsx global> - styled-jsx
         // needs a StyledJsxRegistry (useServerInsertedHTML) to work correctly in the App Router,
         // which this tree doesn't set up, and was surfacing as React's "encountered a script tag
