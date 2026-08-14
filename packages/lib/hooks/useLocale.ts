@@ -1,11 +1,10 @@
-import { createInstance } from "i18next";
-import type { TFunction, i18n } from "i18next";
-import { useContext } from "react";
-import { useTranslation } from "react-i18next";
-
 import { useAtomsContext } from "@calcom/atoms/hooks/useAtomsContext";
 import { AppRouterI18nContext } from "@calcom/web/app/AppRouterI18nProvider";
 import { CustomI18nContext } from "@calcom/web/app/CustomI18nProvider";
+import type { i18n, TFunction } from "i18next";
+import { createInstance } from "i18next";
+import { useContext } from "react";
+import { useTranslation } from "react-i18next";
 
 type useLocaleReturnType = {
   i18n: i18n;
@@ -14,9 +13,31 @@ type useLocaleReturnType = {
 };
 
 // @internal
+// useTranslation() must be called unconditionally (rules of hooks), but when useLocale() below is in its
+// App Router branch, this hook's result is discarded entirely - the App Router branch computes t/i18n
+// itself from a server-loaded instance. Without any bound i18n instance, react-i18next's useTranslation()
+// warns "You will need to pass in an i18next instance by using initReactI18next" on every page load,
+// since apps/web's App Router tree isn't wrapped with initReactI18next (only the legacy Pages Router is,
+// see app-providers.tsx). Passing this placeholder instance only when the result won't be used avoids the
+// warning without touching real Pages Router behavior, where useTranslation() still resolves the actual
+// global instance normally.
+let placeholderI18nInstance: i18n | undefined;
+const getPlaceholderI18nInstance = (): i18n => {
+  if (!placeholderI18nInstance) {
+    placeholderI18nInstance = createInstance();
+    placeholderI18nInstance.init({ lng: "en", resources: {} });
+  }
+  return placeholderI18nInstance;
+};
+
+// @internal
 const useClientLocale = (namespace: Parameters<typeof useTranslation>[0] = "common"): useLocaleReturnType => {
   const context = useAtomsContext();
-  const { i18n, t } = useTranslation(namespace);
+  const appRouterContext = useContext(AppRouterI18nContext);
+  const { i18n, t } = useTranslation(
+    namespace,
+    appRouterContext ? { i18n: getPlaceholderI18nInstance() } : undefined
+  );
   const isLocaleReady = Object.keys(i18n).length > 0;
   if (context?.clientId) {
     return { i18n: context.i18n, t: context.t, isLocaleReady: true } as unknown as useLocaleReturnType;
