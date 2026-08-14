@@ -6,6 +6,12 @@
       "runtimeExecutable": "sh",
       "runtimeArgs": ["-c", "cd apps/api/v2 && yarn copy-swagger-module && yarn start --watch"],
       "port": 5555
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "yarn",
+      "runtimeArgs": ["workspace", "@calcom/web", "dev"],
+      "port": 3000
     }
   ]
 }
