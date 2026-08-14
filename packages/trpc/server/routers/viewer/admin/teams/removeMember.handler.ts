@@ -11,5 +11,5 @@ type RemoveMemberOptions = {
 
 export const adminRemoveMemberHandler = async ({ input }: RemoveMemberOptions) => {
   const teamService = getTeamService();
-  return teamService.adminRemoveMember(input);
+  return teamService.adminRemoveMember({ teamId: input.teamId, targetUserId: input.memberId });
 };

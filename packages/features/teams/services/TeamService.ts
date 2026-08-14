@@ -363,6 +363,35 @@ export class TeamService {
     return this.deps.teamRepository.delete({ id: teamId });
   }
 
+  /** Same roster shape as listMembers, minus the membership assertion. */
+  async adminListMembers({ teamId }: { teamId: number }) {
+    return this.deps.membershipRepository.findMembershipsWithUserByTeamId({ teamId });
+  }
+
+  async adminChangeMemberRole({
+    teamId,
+    targetUserId,
+    role,
+  }: {
+    teamId: number;
+    targetUserId: number;
+    role: MembershipRole;
+  }) {
+    const targetMembership = await this.deps.membershipRepository.findUniqueByUserIdAndTeamId({
+      teamId,
+      userId: targetUserId,
+    });
+    if (!targetMembership) {
+      throw ErrorWithCode.Factory.NotFound(`User ${targetUserId} is not a member of team ${teamId}`);
+    }
+
+    if (targetMembership.role === MembershipRole.OWNER && role !== MembershipRole.OWNER) {
+      await this.assertNotLastOwner({ teamId });
+    }
+
+    return this.deps.membershipRepository.updateRole({ userId: targetUserId, teamId, role });
+  }
+
   async adminAddMember({ teamId, userId, role }: { teamId: number; userId: number; role: MembershipRole }) {
     const existing = await this.deps.membershipRepository.findUniqueByUserIdAndTeamId({ teamId, userId });
     if (existing) {
@@ -372,17 +401,20 @@ export class TeamService {
     return MembershipRepository.create({ teamId, userId, role, accepted: true });
   }
 
-  async adminRemoveMember({ teamId, userId }: { teamId: number; userId: number }) {
-    const membership = await this.deps.membershipRepository.findUniqueByUserIdAndTeamId({ teamId, userId });
+  async adminRemoveMember({ teamId, targetUserId }: { teamId: number; targetUserId: number }) {
+    const membership = await this.deps.membershipRepository.findUniqueByUserIdAndTeamId({
+      teamId,
+      userId: targetUserId,
+    });
     if (!membership) {
-      throw ErrorWithCode.Factory.NotFound(`User ${userId} is not a member of team ${teamId}`);
+      throw ErrorWithCode.Factory.NotFound(`User ${targetUserId} is not a member of team ${teamId}`);
     }
 
     if (membership.role === MembershipRole.OWNER) {
       await this.assertNotLastOwner({ teamId });
     }
 
-    return this.deps.membershipRepository.delete({ userId, teamId });
+    return this.deps.membershipRepository.delete({ userId: targetUserId, teamId });
   }
 
   private async assertNotLastOwner({ teamId }: { teamId: number }) {

@@ -1,10 +1,12 @@
 import { authedAdminProcedure } from "../../../../procedures/authedProcedure";
 import { router } from "../../../../trpc";
 import { ZAdminAddMemberInputSchema } from "./addMember.schema";
+import { ZAdminChangeMemberRoleInputSchema } from "./changeMemberRole.schema";
 import { ZAdminCreateTeamInputSchema } from "./create.schema";
 import { ZAdminDeleteTeamInputSchema } from "./delete.schema";
 import { ZAdminGetTeamInputSchema } from "./get.schema";
 import { ZAdminListTeamsInputSchema } from "./list.schema";
+import { ZAdminListMembersInputSchema } from "./listMembers.schema";
 import { ZAdminRemoveMemberInputSchema } from "./removeMember.schema";
 import { ZAdminUpdateTeamInputSchema } from "./update.schema";
 
@@ -37,5 +39,13 @@ export const adminTeamsRouter = router({
   removeMember: authedAdminProcedure.input(ZAdminRemoveMemberInputSchema).mutation(async (opts) => {
     const { adminRemoveMemberHandler } = await import("./removeMember.handler");
     return adminRemoveMemberHandler(opts);
+  }),
+  listMembers: authedAdminProcedure.input(ZAdminListMembersInputSchema).query(async (opts) => {
+    const { adminListMembersHandler } = await import("./listMembers.handler");
+    return adminListMembersHandler(opts);
+  }),
+  changeMemberRole: authedAdminProcedure.input(ZAdminChangeMemberRoleInputSchema).mutation(async (opts) => {
+    const { adminChangeMemberRoleHandler } = await import("./changeMemberRole.handler");
+    return adminChangeMemberRoleHandler(opts);
   }),
 });
