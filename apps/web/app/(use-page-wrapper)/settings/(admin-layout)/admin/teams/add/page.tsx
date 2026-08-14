@@ -3,14 +3,16 @@ import { _generateMetadata, getTranslate } from "app/_utils";
 import { requireAdminSession } from "~/teams/lib/requireAdminSession";
 import AdminTeamsAddView from "~/teams/views/admin-teams-add-view";
 
-export const generateMetadata = async () =>
-  await _generateMetadata(
+export const generateMetadata = async () => {
+  await requireAdminSession();
+  return await _generateMetadata(
     (t) => t("add_new_team"),
     (t) => t("admin_teams_add_description"),
     undefined,
     undefined,
     "/settings/admin/teams/add"
   );
+};
 
 const Page = async () => {
   await requireAdminSession();

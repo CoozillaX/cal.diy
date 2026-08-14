@@ -5,14 +5,16 @@ import { notFound } from "next/navigation";
 import { requireAdminSession } from "~/teams/lib/requireAdminSession";
 import ProfileView from "~/teams/views/profile-view";
 
-export const generateMetadata = async ({ params }: { params: Promise<{ id: string }> }) =>
-  await _generateMetadata(
+export const generateMetadata = async ({ params }: { params: Promise<{ id: string }> }) => {
+  await requireAdminSession();
+  return await _generateMetadata(
     (t) => t("profile"),
     (t) => t("edit_team_description"),
     undefined,
     undefined,
     `/settings/admin/teams/${(await params).id}/edit/profile`
   );
+};
 
 const Page = async ({ params: _params }: PageProps) => {
   await requireAdminSession();

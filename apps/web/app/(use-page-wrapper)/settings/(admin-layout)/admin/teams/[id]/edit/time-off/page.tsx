@@ -5,14 +5,16 @@ import { notFound } from "next/navigation";
 import { requireAdminSession } from "~/teams/lib/requireAdminSession";
 import TimeOffView, { TimeOffCTA } from "~/teams/views/time-off-view";
 
-export const generateMetadata = async ({ params }: { params: Promise<{ id: string }> }) =>
-  await _generateMetadata(
+export const generateMetadata = async ({ params }: { params: Promise<{ id: string }> }) => {
+  await requireAdminSession();
+  return await _generateMetadata(
     (t) => t("time_off"),
     (t) => t("team_closures_description"),
     undefined,
     undefined,
     `/settings/admin/teams/${(await params).id}/edit/time-off`
   );
+};
 
 const Page = async ({ params: _params }: PageProps) => {
   await requireAdminSession();
