@@ -73,6 +73,18 @@ export class TeamPermissionSettingService {
     await this.deps.settingRepository.upsertMany({ teamId, settings });
   }
 
+  /** Platform-admin bypass of the owner-only check above - the tRPC router gates this with
+   * authedAdminProcedure instead (see agents/rules/architecture-page-level-auth.md). */
+  async adminUpdateSettings({
+    teamId,
+    settings,
+  }: {
+    teamId: number;
+    settings: { permissionKey: TeamPermissionKey; minimumRole: MembershipRole }[];
+  }): Promise<void> {
+    await this.deps.settingRepository.upsertMany({ teamId, settings });
+  }
+
   private async assertIsTeamOwner({ teamId, userId }: { teamId: number; userId: number }) {
     const membership = await this.deps.membershipRepository.findUniqueByUserIdAndTeamId({ teamId, userId });
     if (!membership?.accepted || membership.role !== MembershipRole.OWNER) {
