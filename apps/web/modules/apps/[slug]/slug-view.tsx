@@ -1,16 +1,13 @@
 "use client";
 
-import Link from "next/link";
-
 import { IS_PRODUCTION } from "@calcom/lib/constants";
 import { useLocale } from "@calcom/lib/hooks/useLocale";
-import { markdownToSafeHTML } from "@calcom/lib/markdownToSafeHTML";
+import { markdownToSafeHTMLClient } from "@calcom/lib/markdownToSafeHTMLClient";
 import { showToast } from "@calcom/ui/components/toast";
-
+import App from "@components/apps/App";
 import type { AppDataProps } from "@lib/apps/[slug]/getStaticProps";
 import useRouterQuery from "@lib/hooks/useRouterQuery";
-
-import App from "@components/apps/App";
+import Link from "next/link";
 
 function SingleAppPage(props: AppDataProps) {
   const { error, setQuery: setError } = useRouterQuery("error");
@@ -66,8 +63,8 @@ function SingleAppPage(props: AppDataProps) {
       body={
         <>
           {}
-          {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Content is sanitized via markdownToSafeHTML */}
-          <div dangerouslySetInnerHTML={{ __html: markdownToSafeHTML(source.content) }} />
+          {/* biome-ignore lint/security/noDangerouslySetInnerHtml: Content is sanitized via markdownToSafeHTMLClient */}
+          <div dangerouslySetInnerHTML={{ __html: markdownToSafeHTMLClient(source.content) }} />
         </>
       }
     />
