@@ -17,6 +17,7 @@ type TransformedCreateTeamEventTypeInput = BaseTransformedEventType & {
   }[];
   destinationCalendar?: { integration: string; externalId: string };
   assignAllTeamMembers?: boolean;
+  fallbackHostUserId?: number | null;
 };
 
 type TransformedUpdateTeamEventTypeInput = Partial<BaseTransformedEventType> & {
@@ -54,8 +55,16 @@ export class TeamsEventTypesService {
       this.eventTypesService.checkHasUserAccessibleEmailBookingField(body.bookingFields);
     }
     const eventTypeUser = await this.getUserToCreateTeamEvent(user);
+    // fallbackHostUserId excluded for the same reason as hosts/children/destinationCalendar:
+    // create.handler.ts passes its `rest` straight through to a bare Prisma
+    // eventType.create() call, which only accepts the relation-connect shape
+    // for this field (fallbackHostUser: {connect: {id}}), not the raw FK
+    // scalar - passing it here throws a PrismaClientValidationError that
+    // create.handler.ts's catch-all turns into an unhelpful bare
+    // BAD_REQUEST. updateTeamEventType below (which receives the untouched
+    // `body`) already handles it correctly via the connect syntax.
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { hosts, children, destinationCalendar, ...rest } = body;
+    const { hosts, children, destinationCalendar, fallbackHostUserId, ...rest } = body;
 
     const { eventType: eventTypeCreated } = await createEventType({
       input: { teamId: teamId, ...rest },
