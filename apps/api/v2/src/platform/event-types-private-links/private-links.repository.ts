@@ -6,6 +6,17 @@ import { Injectable } from "@nestjs/common";
 export class PrivateLinksRepository {
   constructor(private readonly dbRead: PrismaReadService, private readonly dbWrite: PrismaWriteService) {}
 
+  // The booking page route is /d/[link]/[slug] (two required segments) - the
+  // slug is needed to build a working bookingUrl, which none of the queries
+  // below otherwise select.
+  async getEventTypeSlug(eventTypeId: number): Promise<string | null> {
+    const eventType = await this.dbRead.prisma.eventType.findUnique({
+      where: { id: eventTypeId },
+      select: { slug: true },
+    });
+    return eventType?.slug ?? null;
+  }
+
   async listByEventTypeId(eventTypeId: number) {
     return this.dbRead.prisma.hashedLink.findMany({
       where: { eventTypeId },

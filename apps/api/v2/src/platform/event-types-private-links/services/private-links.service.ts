@@ -17,6 +17,17 @@ export class PrivateLinksService {
     private readonly repo: PrivateLinksRepository
   ) {}
 
+  // The booking page route is /d/[link]/[slug] - both segments are required
+  // or the page 404s (confirmed against the real local instance: every
+  // bookingUrl built without the slug 404'd; appending the slug manually
+  // fixed it). Centralized here so all three call sites below build the same
+  // correct shape.
+  private async buildBookingUrl(eventTypeId: number, link: string): Promise<string> {
+    const slug = await this.repo.getEventTypeSlug(eventTypeId);
+    const base = process.env.NEXT_PUBLIC_WEBAPP_URL || "https://cal.com";
+    return slug ? `${base}/d/${link}/${slug}` : `${base}/d/${link}`;
+  }
+
   async createPrivateLink(
     eventTypeId: number,
     userId: number,
@@ -33,7 +44,7 @@ export class PrivateLinksService {
         id: created.link,
         eventTypeId,
         isExpired: isLinkExpired(created as any),
-        bookingUrl: `${process.env.NEXT_PUBLIC_WEBAPP_URL || "https://cal.com"}/d/${created.link}`,
+        bookingUrl: await this.buildBookingUrl(eventTypeId, created.link),
         expiresAt: created.expiresAt ?? null,
         maxUsageCount: (created as any).maxUsageCount ?? null,
         usageCount: (created as any).usageCount ?? 0,
@@ -50,15 +61,17 @@ export class PrivateLinksService {
   async getPrivateLinks(eventTypeId: number): Promise<PrivateLinkOutput[]> {
     try {
       const links = await this.repo.listByEventTypeId(eventTypeId);
-      const mapped: PrivateLinkData[] = links.map((l) => ({
-        id: l.link,
-        eventTypeId,
-        isExpired: isLinkExpired(l as any),
-        bookingUrl: `${process.env.NEXT_PUBLIC_WEBAPP_URL || "https://cal.com"}/d/${l.link}`,
-        expiresAt: l.expiresAt ?? null,
-        maxUsageCount: l.maxUsageCount ?? null,
-        usageCount: l.usageCount ?? 0,
-      }));
+      const mapped: PrivateLinkData[] = await Promise.all(
+        links.map(async (l) => ({
+          id: l.link,
+          eventTypeId,
+          isExpired: isLinkExpired(l as any),
+          bookingUrl: await this.buildBookingUrl(eventTypeId, l.link),
+          expiresAt: l.expiresAt ?? null,
+          maxUsageCount: l.maxUsageCount ?? null,
+          usageCount: l.usageCount ?? 0,
+        }))
+      );
       return this.outputService.transformArrayToOutput(mapped);
     } catch (error) {
       if (error instanceof Error) {
@@ -85,7 +98,7 @@ export class PrivateLinksService {
         id: updated.link,
         eventTypeId,
         isExpired: isLinkExpired(updated as any),
-        bookingUrl: `${process.env.NEXT_PUBLIC_WEBAPP_URL || "https://cal.com"}/d/${updated.link}`,
+        bookingUrl: await this.buildBookingUrl(eventTypeId, updated.link),
         expiresAt: updated.expiresAt ?? null,
         maxUsageCount: updated.maxUsageCount ?? null,
         usageCount: updated.usageCount ?? 0,
