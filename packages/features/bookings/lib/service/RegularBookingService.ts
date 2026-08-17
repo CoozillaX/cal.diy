@@ -1535,7 +1535,12 @@ async function handler(
     userId: organizerUser.id,
     eventTypeId,
     triggerEvent: WebhookTriggerEvents.BOOKING_CREATED,
-    teamId: null,
+    // getWebhooks() matches team-scoped webhooks on teamId (falling back to
+    // 0 when this is null, which never matches a real team) - a team event
+    // type's own webhook (created via POST /v2/teams/{teamId}/webhooks)
+    // otherwise never fires for BOOKING_CREATED/BOOKING_RESCHEDULED on any
+    // of its bookings. teamInfo is already computed above for .withTeam().
+    teamId: isTeamEventType ? (teamInfo?.id ?? null) : null,
     orgId: null,
     oAuthClientId: platformClientId,
   };

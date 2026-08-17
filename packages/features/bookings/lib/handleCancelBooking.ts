@@ -220,7 +220,11 @@ async function handler(input: CancelBookingInput, dependencies?: Dependencies) {
     userId: bookingToDelete.userId,
     eventTypeId: bookingToDelete.eventTypeId as number,
     triggerEvent: eventTrigger,
-    teamId: null,
+    // Same team-webhook-never-fires gap as RegularBookingService's
+    // BOOKING_CREATED subscriberOptions - teamId: null can never match a
+    // real team-scoped webhook in getWebhooks(). bookingToDelete.eventType
+    // .teamId is already used the same way just above (line ~158).
+    teamId: bookingToDelete.eventType?.teamId ?? null,
     orgId: undefined,
     oAuthClientId: platformClientId,
   };
