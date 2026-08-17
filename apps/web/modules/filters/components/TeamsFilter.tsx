@@ -32,11 +32,23 @@ export const TeamsFilter = ({
   const session = useSession();
   const [search, setSearch] = useState("");
 
-  const { data: query, pushItemToKey, removeItemByKeyAndValue, removeAllQueryParams } = useFilterQuery();
+  const {
+    data: query,
+    pushItemToKey,
+    removeItemByKeyAndValue,
+    removeAllQueryParams,
+  } = useFilterQuery();
 
-  const teams = null as
-    | { id: number; name: string; slug: string | null; logoUrl?: string | null; isOrganization?: boolean }[]
-    | null;
+  // trpc.viewer.teams.list is a plain authedProcedure (not EE/org-gated) and
+  // its handler already excludes organizations server-side
+  // (TeamService.listTeamsForUser -> isOrganization: false) - this was
+  // hardcoded to `null` (silently disabling the whole filter, including the
+  // search field) somewhere in this fork's original squashed refactor commit,
+  // seemingly by mistake since the query itself works fine for regular teams.
+  const { data: teams } = trpc.viewer.teams.list.useQuery(undefined, {
+    // Teams don't change that frequently.
+    refetchOnWindowFocus: false,
+  });
 
   const getCheckedOptionsNames = () => {
     const checkedOptions: string[] = [];
@@ -63,13 +75,16 @@ export const TeamsFilter = ({
 
   const userId = session.data?.user?.id || 0;
   const upId = session.data?.upId || "";
-  const isUserInQuery = useProfileFilter ? query.upIds?.includes(upId) : query.userIds?.includes(userId);
+  const isUserInQuery = useProfileFilter
+    ? query.upIds?.includes(upId)
+    : query.userIds?.includes(userId);
   return (
     <div className="flex items-center">
       <AnimatedPopover
         text={getCheckedOptionsNames()}
         popoverTriggerClassNames={popoverTriggerClassNames}
-        prefix={`${t("teams")}: `}>
+        prefix={`${t("teams")}: `}
+      >
         <FilterCheckboxFieldsContainer>
           <FilterSearchField
             placeholder={t("search")}
@@ -102,8 +117,11 @@ export const TeamsFilter = ({
           />
           <Divider />
           {teams
-            ?.filter((team) => !team?.isOrganization)
-            .filter((team) => team.name.toLowerCase().includes(search.toLowerCase()))
+            // Organizations are already excluded server-side
+            // (TeamService.listTeamsForUser queries isOrganization: false).
+            ?.filter((team) =>
+              team.name.toLowerCase().includes(search.toLowerCase())
+            )
             .map((team) => (
               <FilterCheckboxField
                 key={team.id}
@@ -120,7 +138,10 @@ export const TeamsFilter = ({
                 icon={
                   <Avatar
                     alt={team?.name}
-                    imageSrc={getOrgOrTeamAvatar({ name: team.name, logoUrl: team.logoUrl ?? null })}
+                    imageSrc={getOrgOrTeamAvatar({
+                      name: team.name,
+                      logoUrl: team.logoUrl ?? null,
+                    })}
                     size="xs"
                   />
                 }
@@ -142,7 +163,11 @@ export const FilterCheckboxFieldsContainer = ({
 }) => {
   return (
     <div
-      className={classNames("flex flex-col gap-0.5 [&>*:first-child]:mt-1 [&>*:last-child]:mb-1", className)}>
+      className={classNames(
+        "flex flex-col gap-0.5 [&>*:first-child]:mt-1 [&>*:last-child]:mb-1",
+        className
+      )}
+    >
       {children}
     </div>
   );
@@ -159,7 +184,8 @@ export const FilterCheckboxField = forwardRef<HTMLInputElement, Props>(
     return (
       <div
         data-testid={testId}
-        className="hover:bg-cal-muted flex items-center py-2 pl-3 pr-2.5 transition hover:cursor-pointer">
+        className="hover:bg-cal-muted flex items-center py-2 pl-3 pr-2.5 transition hover:cursor-pointer"
+      >
         <label className="flex w-full max-w-full items-center justify-between hover:cursor-pointer">
           <div className="flex items-center truncate">
             {icon && (
@@ -170,7 +196,8 @@ export const FilterCheckboxField = forwardRef<HTMLInputElement, Props>(
             <Tooltip content={label}>
               <label
                 htmlFor={rest.id}
-                className="text-default me-1 cursor-pointer truncate text-sm font-medium">
+                className="text-default me-1 cursor-pointer truncate text-sm font-medium"
+              >
                 {label}
               </label>
             </Tooltip>
@@ -180,7 +207,7 @@ export const FilterCheckboxField = forwardRef<HTMLInputElement, Props>(
               {...rest}
               ref={ref}
               type="checkbox"
-              className="text-emphasis dark:text-muted focus:ring-emphasis border-default bg-default checked:border-transparent! checked:bg-gray-800! h-4 w-4 rounded-[4px] transition hover:cursor-pointer"
+              className="text-emphasis dark:text-muted focus:ring-emphasis border-default bg-default checked:border-transparent! checked:bg-gray-800! h-4 w-4 rounded-cal transition hover:cursor-pointer"
             />
           </div>
         </label>

@@ -5,6 +5,7 @@ import useMeQuery from "@calcom/trpc/react/hooks/useMeQuery";
 import { useCallback, useMemo } from "react";
 import type { ActiveFiltersValidator } from "~/data-table/DataTableProvider";
 import { useEventTypes } from "./useEventTypes";
+import { useMembers } from "./useMembers";
 
 interface UseActiveFiltersValidatorOptions {
   canReadOthersBookings: boolean;
@@ -58,8 +59,14 @@ export function useActiveFiltersValidator({
   canReadOthersBookings,
 }: UseActiveFiltersValidatorOptions): ActiveFiltersValidatorState {
   const eventTypes = useEventTypes();
-  const teams = undefined as { id: number; name: string }[] | undefined;
-  const members = undefined as { id: number; name: string | null }[] | undefined;
+  // Both were hardcoded to `undefined` - beyond emptying the filter options
+  // themselves (see useFacetedUniqueValues.ts), `teams !== undefined` never
+  // being true also meant `isDataLoaded` below was permanently false, so
+  // this hook never returned a working validator at all (always "loading").
+  const { data: teams } = trpc.viewer.teams.list.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+  const members = useMembers();
   const { data: currentUser } = useMeQuery();
 
   const accessibleUserIds = useMemo(() => {

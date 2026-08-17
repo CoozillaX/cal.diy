@@ -4,6 +4,7 @@ import useMeQuery from "@calcom/trpc/react/hooks/useMeQuery";
 import type { RowData, Table } from "@tanstack/react-table";
 import { useCallback } from "react";
 import { useEventTypes } from "./useEventTypes";
+import { useMembers } from "./useMembers";
 
 interface UseFacetedUniqueValuesOptions {
   canReadOthersBookings: boolean;
@@ -16,8 +17,17 @@ export function useFacetedUniqueValues({
   columnId: string
 ) => () => Map<FacetedValue, number> {
   const eventTypes = useEventTypes();
-  const teams = undefined as { id: number; name: string }[] | undefined;
-  const members = undefined as { id: number; name: string | null }[] | undefined;
+  // trpc.viewer.teams.list is a plain authedProcedure - same query
+  // TeamsFilter.tsx uses for the Event Types page's team filter. This was
+  // hardcoded to `undefined` (silently emptying the bookings page's "team"
+  // filter options - both the checkbox list and its search, since there was
+  // nothing to search) somewhere in this fork's original refactor.
+  const { data: teams } = trpc.viewer.teams.list.useQuery(undefined, {
+    refetchOnWindowFocus: false,
+  });
+  // Same story as `teams` above - hardcoded to `undefined`, so the "member"
+  // filter (canReadOthersBookings === true) had no options either.
+  const members = useMembers();
   const { data: currentUser } = useMeQuery();
 
   return useCallback(
