@@ -52,6 +52,10 @@ interface ValidationContext {
   locations?: InputEventTransformed_2024_06_14["locations"];
   requiresConfirmation?: boolean;
   eventName?: string;
+  // Only needed so a custom eventName can reference booking-field slugs as
+  // {variable} (see validateCustomEventNameInput below) - unrelated to the
+  // seatsPerTimeSlot/locations/requiresConfirmation Db-fallback merging above.
+  bookingFields?: Array<{ slug?: string; name?: string }>;
 }
 
 @Injectable()
@@ -73,6 +77,7 @@ export class InputEventTypesService_2024_06_14 {
       locations: transformedBody.locations,
       requiresConfirmation: transformedBody.requiresConfirmation,
       eventName: transformedBody.eventName,
+      bookingFields: transformedBody.bookingFields,
     });
 
     if (transformedBody.destinationCalendar) {
@@ -114,6 +119,7 @@ export class InputEventTypesService_2024_06_14 {
       locations: transformedBody.locations,
       requiresConfirmation: transformedBody.requiresConfirmation,
       eventName: transformedBody.eventName,
+      bookingFields: transformedBody.bookingFields,
     });
 
     if (transformedBody.destinationCalendar) {
@@ -169,6 +175,7 @@ export class InputEventTypesService_2024_06_14 {
       locations: transformedBody.locations,
       requiresConfirmation: transformedBody.requiresConfirmation,
       eventName: transformedBody.eventName,
+      bookingFields: transformedBody.bookingFields,
     });
 
     if (transformedBody.destinationCalendar) {
@@ -207,6 +214,7 @@ export class InputEventTypesService_2024_06_14 {
       locations: transformedBody.locations,
       requiresConfirmation: transformedBody.requiresConfirmation,
       eventName: transformedBody.eventName,
+      bookingFields: transformedBody.bookingFields,
     });
 
     if (transformedBody.destinationCalendar) {
@@ -544,6 +552,7 @@ export class InputEventTypesService_2024_06_14 {
     locations,
     requiresConfirmation,
     eventName,
+    bookingFields,
   }: ValidationContext) {
     let seatsPerTimeSlotDb: number | null = null;
     let locationsDb: ReturnType<typeof this.transformLocations> = [];
@@ -568,7 +577,7 @@ export class InputEventTypesService_2024_06_14 {
     this.validateRequiresConfirmationSeatsDisabledRule(requiresConfirmationFinal, seatsEnabledFinal);
 
     if (eventName) {
-      await this.validateCustomEventNameInput(eventName);
+      await this.validateCustomEventNameInput(eventName, bookingFields);
     }
   }
   validateSeatsSingleLocationRule(
@@ -624,8 +633,19 @@ export class InputEventTypesService_2024_06_14 {
     }
   }
 
-  async validateCustomEventNameInput(value: string) {
-    const validationResult = validateCustomEventName(value);
+  async validateCustomEventNameInput(value: string, bookingFields?: ValidationContext["bookingFields"]) {
+    // validateCustomEventName only reads Object.keys(bookingFields) to build
+    // the list of allowed {variable} names - it never reads the values - so
+    // a slug -> true map is enough, no need for full field objects.
+    const bookingFieldsBySlug = bookingFields?.length
+      ? Object.fromEntries(
+          bookingFields
+            .map((field) => field.slug ?? field.name)
+            .filter((slug): slug is string => Boolean(slug))
+            .map((slug) => [slug, true])
+        )
+      : undefined;
+    const validationResult = validateCustomEventName(value, bookingFieldsBySlug);
     if (validationResult !== true) {
       throw new BadRequestException(`Invalid event name variables: ${validationResult}`);
     }
