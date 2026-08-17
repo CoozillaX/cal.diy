@@ -1,5 +1,5 @@
 import type { Webhook } from "@calcom/features/webhooks/lib/dto/types";
-
+import { MembershipRole } from "@calcom/prisma/enums";
 import { router } from "../../../trpc";
 import { ZCreateInputSchema } from "./create.schema";
 import { ZDeleteInputSchema } from "./delete.schema";
@@ -8,6 +8,16 @@ import { ZGetInputSchema } from "./get.schema";
 import { ZListInputSchema } from "./list.schema";
 import { ZTestTriggerInputSchema } from "./testTrigger.schema";
 import { createWebhookProcedure } from "./util";
+
+// Team members can view webhooks; only team admins/owners may create, edit, delete, or test them.
+const MODIFY_ACCESS = {
+  permission: "webhook.update" as const,
+  fallbackRoles: [MembershipRole.ADMIN, MembershipRole.OWNER],
+};
+const DELETE_ACCESS = {
+  permission: "webhook.delete" as const,
+  fallbackRoles: [MembershipRole.ADMIN, MembershipRole.OWNER],
+};
 
 type WebhookRouterHandlerCache = {
   list?: typeof import("./list.handler").listHandler;
@@ -58,7 +68,7 @@ export const webhookRouter = router({
       });
     }),
 
-  create: createWebhookProcedure()
+  create: createWebhookProcedure(MODIFY_ACCESS)
     .input(ZCreateInputSchema)
     .mutation(async ({ ctx, input }) => {
       if (!UNSTABLE_HANDLER_CACHE.create) {
@@ -76,7 +86,7 @@ export const webhookRouter = router({
       });
     }),
 
-  edit: createWebhookProcedure()
+  edit: createWebhookProcedure(MODIFY_ACCESS)
     .input(ZEditInputSchema)
     .mutation(async ({ ctx, input }) => {
       if (!UNSTABLE_HANDLER_CACHE.edit) {
@@ -94,7 +104,7 @@ export const webhookRouter = router({
       });
     }),
 
-  delete: createWebhookProcedure()
+  delete: createWebhookProcedure(DELETE_ACCESS)
     .input(ZDeleteInputSchema)
     .mutation(async ({ ctx, input }) => {
       if (!UNSTABLE_HANDLER_CACHE.delete) {
@@ -112,7 +122,7 @@ export const webhookRouter = router({
       });
     }),
 
-  testTrigger: createWebhookProcedure()
+  testTrigger: createWebhookProcedure(MODIFY_ACCESS)
     .input(ZTestTriggerInputSchema)
     .mutation(async ({ ctx, input }) => {
       if (!UNSTABLE_HANDLER_CACHE.testTrigger) {
