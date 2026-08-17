@@ -719,4 +719,12 @@ export class CreateTeamEventTypeInput_2024_06_14 extends BaseCreateEventTypeInpu
   }) */
   @ApiHideProperty()
   rrHostSubsetEnabled?: boolean;
+
+  @IsInt()
+  @IsOptional()
+  @DocsPropertyOptional({
+    description:
+      "Only relevant for round robin event types. If none of the hosts above are available, assign the booking to this user instead of failing. Stays separate from `hosts` and is only used as a last resort (\"Enable fallback host\" in the web app's Assignment tab).",
+  })
+  fallbackHostUserId?: number;
 }

@@ -17953,6 +17953,10 @@
           "rescheduleWithSameRoundRobinHost": {
             "type": "boolean",
             "description": "Rescheduled events will be assigned to the same host as initially scheduled."
+          },
+          "fallbackHostUserId": {
+            "type": "number",
+            "description": "Only relevant for round robin event types. If none of the hosts above are available, assign the booking to this user instead of failing. Stays separate from `hosts` and is only used as a last resort (\"Enable fallback host\" in the web app's Assignment tab)."
           }
         },
         "required": ["lengthInMinutes", "title", "slug", "schedulingType"]
@@ -18362,6 +18366,10 @@
           "rescheduleWithSameRoundRobinHost": {
             "type": "boolean",
             "description": "Rescheduled events will be assigned to the same host as initially scheduled."
+          },
+          "fallbackHostUserId": {
+            "type": "number",
+            "description": "Only relevant for round robin event types. If none of the hosts above are available, assign the booking to this user instead of failing. Stays separate from `hosts` and is only used as a last resort (\"Enable fallback host\" in the web app's Assignment tab)."
           }
         }
       }

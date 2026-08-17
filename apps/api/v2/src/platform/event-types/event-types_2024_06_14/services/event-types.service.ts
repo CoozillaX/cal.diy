@@ -197,7 +197,13 @@ export class EventTypesService_2024_06_14 {
       return null;
     }
 
-    this.checkUserOwnsEventType(userId, eventType);
+    // Team event types (userId=null) were already authorized by the
+    // repository query's team-membership OR clause — checkUserOwnsEventType
+    // only knows the direct-personal-ownership check and would reject every
+    // team event type here, including for the team's own owner/admin.
+    if (!eventType.teamId) {
+      this.checkUserOwnsEventType(userId, eventType);
+    }
 
     return {
       ownerId: userId,
