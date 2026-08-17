@@ -6,20 +6,8 @@ import { IdentityProvider, MembershipRole } from "@calcom/prisma/enums";
 import { userMetadata } from "@calcom/prisma/zod-utils";
 import type { TrpcSessionUser } from "@calcom/trpc/server/types";
 import type { Session } from "next-auth";
+import { PermissionCheckService } from "../eventTypes/permissionCheckService";
 import type { TGetInputSchema } from "./get.schema";
-
-class PermissionCheckService {
-  constructor(_prisma?: unknown) {}
-  async checkPermission(..._args: unknown[]) {
-    return true;
-  }
-  async hasPermission(..._args: unknown[]) {
-    return true;
-  }
-  async getTeamIdsWithPermission(..._args: unknown[]): Promise<number[]> {
-    return [];
-  }
-}
 
 type MeOptions = {
   ctx: {
