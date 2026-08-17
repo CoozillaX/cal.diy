@@ -66,12 +66,21 @@ export function DataTableFiltersProvider({ children }: DataTableFiltersProviderP
 
   const addFilter = useCallback(
     (columnId: string) => {
-      if (!activeFilters?.some((filter) => filter.f === columnId)) {
-        setActiveFilters([...activeFilters, { f: columnId, v: undefined }]);
-        clearSystemSegmentSelectionIfExists();
-      }
+      // Functional updater, same pattern updateFilter below already uses -
+      // reading `activeFilters` from the closure instead let two
+      // near-simultaneous addFilter calls both see the "not present yet"
+      // state and both push, producing two activeFilters entries with the
+      // same `f` (surfaces as a duplicate React key on ActiveFilters' list).
+      setActiveFilters((prev) => {
+        const filters = prev ?? [];
+        if (filters.some((filter) => filter.f === columnId)) {
+          return filters;
+        }
+        return [...filters, { f: columnId, v: undefined }];
+      });
+      clearSystemSegmentSelectionIfExists();
     },
-    [activeFilters, setActiveFilters, clearSystemSegmentSelectionIfExists]
+    [setActiveFilters, clearSystemSegmentSelectionIfExists]
   );
 
   const setPageIndexWrapper = useCallback(

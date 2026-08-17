@@ -16,6 +16,11 @@ export function ActiveFilters<TData>({ table, columnIdsToHide }: ActiveFiltersPr
   const { activeFilters } = useDataTable();
   const filterableColumns = useFilterableColumns(table);
 
+  // Defensive dedupe by column id: a URL/segment saved before the addFilter
+  // race fix below could still carry two entries for the same filter, which
+  // would render two elements with the same `key`.
+  const seenColumnIds = new Set<string>();
+
   return (
     <>
       {activeFilters.map((filter) => {
@@ -23,6 +28,10 @@ export function ActiveFilters<TData>({ table, columnIdsToHide }: ActiveFiltersPr
         if (!column) {
           return null;
         }
+        if (seenColumnIds.has(column.id)) {
+          return null;
+        }
+        seenColumnIds.add(column.id);
         if (columnIdsToHide?.includes(column.id)) {
           return null;
         }
