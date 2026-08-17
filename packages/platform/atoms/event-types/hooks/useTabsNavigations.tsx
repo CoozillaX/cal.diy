@@ -21,12 +21,7 @@ type Props = {
   team: EventTypeSetupProps["team"];
   eventTypeApps?: EventTypeApps;
 };
-export const useTabsNavigations = ({
-  formMethods,
-  eventType,
-  team,
-  eventTypeApps,
-}: Props) => {
+export const useTabsNavigations = ({ formMethods, eventType, team, eventTypeApps }: Props) => {
   const { t } = useLocale();
 
   const length = formMethods.watch("length");
@@ -112,18 +107,6 @@ export const useTabsNavigations = ({
         "data-testid": "assignment",
       });
     }
-    const showInstant = !(isManagedEventType || isChildrenManagedEventType);
-    if (showInstant) {
-      if (team) {
-        navigation.push({
-          name: t("instant_tab_title"),
-          href: `/event-types/${eventType.id}?tabName=instant`,
-          icon: "phone-call",
-          info: t(`instant_event_tab_description`),
-          "data-testid": "instant_tab_title",
-        });
-      }
-    }
     navigation.push({
       name: t("webhooks"),
       href: `/event-types/${eventTypeId}?tabName=webhooks`,
@@ -147,7 +130,6 @@ export const useTabsNavigations = ({
     watchSchedulingType,
     watchChildrenCount,
     activeWebhooksNumber,
-    eventType.id,
     formMethods,
   ]);
 
