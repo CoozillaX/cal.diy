@@ -1,11 +1,8 @@
+import type { IconName } from "@calcom/ui/components/icon";
+import { IconSprites } from "@calcom/ui/components/icon";
 import { _generateMetadataForStaticPage } from "app/_utils";
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
-import localFont from "next/font/local";
-
-import { IconSprites } from "@calcom/ui/components/icon";
-import type { IconName } from "@calcom/ui/components/icon";
-
+import { Inter, Work_Sans } from "next/font/google";
 import { lucideIconList } from "../../../../packages/ui/components/icon/icon-list.mjs";
 import { IconGrid } from "./IconGrid";
 
@@ -16,12 +13,11 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const interFont = Inter({ subsets: ["latin"], variable: "--font-sans", preload: true, display: "swap" });
-const calFont = localFont({
-  src: "../../fonts/CalSans-SemiBold.woff2",
+const calFont = Work_Sans({
+  subsets: ["latin"],
   variable: "--font-cal",
   preload: true,
   display: "swap",
-  weight: "600",
 });
 
 export default function IconsPage() {

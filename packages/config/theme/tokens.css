@@ -238,22 +238,22 @@
 
   --radius-none: 0px;
 
-  /* Background Standard */
-  --cal-bg-emphasis: hsla(220, 13%, 91%, 1);
-  --cal-bg: hsla(0, 0%, 100%, 1);
-  --cal-bg-subtle: hsla(220, 14%, 94%, 1);
-  --cal-bg-muted: hsla(210, 20%, 97%, 1);
-  --cal-bg-inverted: hsla(210, 30%, 4%, 1);
+  /* Background Standard - mapped to Fantasy Caravan surface tokens */
+  --cal-bg-emphasis: #eae8e7;
+  --cal-bg: #ffffff;
+  --cal-bg-subtle: #f6f3f2;
+  --cal-bg-muted: #f0eded;
+  --cal-bg-inverted: #1b1c1c;
 
-  /* Background Primary */
-  --cal-bg-primary: hsla(214, 30%, 16%, 1);
-  --cal-bg-primary-emphasis: hsla(220, 6%, 25%, 1);
-  --cal-bg-primary-muted: hsla(220, 14%, 94%, 1);
+  /* Background Primary - Fantasy Caravan primary #003b93 */
+  --cal-bg-primary: #003b93;
+  --cal-bg-primary-emphasis: #0051c3;
+  --cal-bg-primary-muted: #dae2ff;
 
-  /* Background Brand */
-  --cal-bg-brand: hsla(214, 30%, 16%, 1);
-  --cal-bg-brand-emphasis: hsla(220, 6%, 25%, 1);
-  --cal-bg-brand-muted: hsla(220, 14%, 94%, 1);
+  /* Background Brand - Fantasy Caravan primary #003b93 */
+  --cal-bg-brand: #003b93;
+  --cal-bg-brand-emphasis: #0051c3;
+  --cal-bg-brand-muted: #dae2ff;
 
   /* Background Semantic */
   --cal-bg-semantic-info-subtle: hsla(212, 88%, 97%, 1);
@@ -289,22 +289,22 @@
   --cal-bg-dark-error: hsla(2, 55%, 30%, 1);
   --cal-bg-launch-dark: hsla(242, 53%, 10%, 1);
 
-  /* Borders */
-  --cal-border-emphasis: hsla(218, 11%, 65%, 1);
-  --cal-border: hsla(216, 12%, 84%, 1);
-  --cal-border-subtle: hsla(220, 13%, 91%, 1);
-  --cal-border-muted: hsla(220, 14%, 94%, 1);
+  /* Borders - mapped to Fantasy Caravan outline tokens */
+  --cal-border-emphasis: #737785;
+  --cal-border: #c3c6d6;
+  --cal-border-subtle: #eae8e7;
+  --cal-border-muted: #f0eded;
   --cal-border-error: hsla(0, 96%, 89%, 1);
   --cal-border-semantic-error: hsla(0, 96%, 89%, 1);
   --cal-border-semantic-attention-subtle: hsla(32, 98%, 83%, 1);
   --cal-border-semantic-error-subtle: hsla(0, 96%, 89%, 1);
   --cal-border-booker: var(--cal-border-subtle);
 
-  /* Content/Text Standard */
-  --cal-text-emphasis: hsla(210, 30%, 4%, 1);
-  --cal-text: hsla(220, 6%, 25%, 1);
-  --cal-text-subtle: hsla(220, 9%, 46%, 1);
-  --cal-text-muted: hsla(218, 11%, 65%, 1);
+  /* Content/Text Standard - mapped to Fantasy Caravan on-surface tokens */
+  --cal-text-emphasis: #1b1c1c;
+  --cal-text: #434653;
+  --cal-text-subtle: #737785;
+  --cal-text-muted: #c3c6d6;
   --cal-text-inverted: hsla(0, 0%, 100%, 1);
 
   /* Content/Text Semantic */
@@ -328,9 +328,9 @@
   --cal-text-attention: hsla(16, 62%, 28%, 1);
   --cal-text-error: hsla(0, 63%, 31%, 1);
 
-  /* Brand */
-  --cal-brand: hsla(221, 39%, 11%, 1);
-  --cal-brand-emphasis: hsla(0, 0%, 6%, 1);
+  /* Brand - Fantasy Caravan primary #003b93 / primary-container #0051c3 */
+  --cal-brand: #003b93;
+  --cal-brand-emphasis: #0051c3;
   --cal-brand-text: hsla(0, 0%, 100%, 1);
 
   /* Box Shadows */
