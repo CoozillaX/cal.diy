@@ -106,11 +106,32 @@ export class EventTypesRepository_2024_06_14 {
     },
   };
 
+  // Ownership here also covers team event types where the caller is an
+  // OWNER/ADMIN of the owning team, not only event types with a direct
+  // personal userId. Team event types (round-robin/collective, used e.g. by
+  // the Perri email-worker's Cal admin integration) have userId=null and are
+  // otherwise unreachable through this check even for the team's own owner —
+  // this affects every route guarded by EventTypeOwnershipGuard, private
+  // links included.
   async getUserEventType(userId: number, eventTypeId: number) {
     return this.dbRead.prisma.eventType.findFirst({
       where: {
         id: eventTypeId,
-        userId,
+        OR: [
+          { userId },
+          {
+            teamId: { not: null },
+            team: {
+              members: {
+                some: {
+                  userId,
+                  accepted: true,
+                  role: { in: ["OWNER", "ADMIN"] },
+                },
+              },
+            },
+          },
+        ],
       },
       include: { users: this.usersInclude, schedule: true, destinationCalendar: true },
     });

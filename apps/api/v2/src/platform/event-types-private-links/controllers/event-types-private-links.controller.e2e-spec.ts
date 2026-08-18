@@ -109,6 +109,9 @@ describe("Event Types Private Links Endpoints", () => {
     expect(response.body.data.linkId).toBeDefined();
     expect(response.body.data.maxUsageCount).toBe(5);
     expect(response.body.data.usageCount).toBeDefined();
+    expect(response.body.data.bookingUrl).toBe(
+      `${process.env.NEXT_PUBLIC_WEBAPP_URL || "https://cal.com"}/d/${response.body.data.linkId}/${eventType.slug}`
+    );
   });
 
   it("GET /v2/event-types/:eventTypeId/private-links - list private links", async () => {
@@ -120,6 +123,11 @@ describe("Event Types Private Links Endpoints", () => {
     expect(response.body.status).toBe(SUCCESS_STATUS);
     expect(Array.isArray(response.body.data)).toBe(true);
     expect(response.body.data.length).toBeGreaterThanOrEqual(1);
+    expect(response.body.data).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ bookingUrl: expect.stringMatching(`/[^/]+/${eventType.slug}$`) }),
+      ])
+    );
   });
 
   it("PATCH /v2/event-types/:eventTypeId/private-links/:linkId - update private link", async () => {
@@ -140,6 +148,9 @@ describe("Event Types Private Links Endpoints", () => {
 
     expect(response.body.status).toBe(SUCCESS_STATUS);
     expect(response.body.data.maxUsageCount).toBe(10);
+    expect(response.body.data.bookingUrl).toBe(
+      `${process.env.NEXT_PUBLIC_WEBAPP_URL || "https://cal.com"}/d/${linkId}/${eventType.slug}`
+    );
   });
 
   it("DELETE /v2/event-types/:eventTypeId/private-links/:linkId - delete private link", async () => {

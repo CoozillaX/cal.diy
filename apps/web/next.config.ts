@@ -235,6 +235,7 @@ const nextConfig = (phase: string): NextConfig => {
     ],
     experimental: {
       optimizePackageImports: ["@calcom/ui"],
+      webpackMemoryOptimizations: true,
     },
     productionBrowserSourceMaps: true,
     transpilePackages: [

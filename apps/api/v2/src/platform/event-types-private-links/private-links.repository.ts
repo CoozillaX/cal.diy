@@ -9,7 +9,13 @@ export class PrivateLinksRepository {
   async listByEventTypeId(eventTypeId: number) {
     return this.dbRead.prisma.hashedLink.findMany({
       where: { eventTypeId },
-      select: { link: true, expiresAt: true, maxUsageCount: true, usageCount: true },
+      select: {
+        link: true,
+        expiresAt: true,
+        maxUsageCount: true,
+        usageCount: true,
+        eventType: { select: { slug: true } },
+      },
     });
   }
 
@@ -21,6 +27,7 @@ export class PrivateLinksRepository {
         expiresAt: true,
         maxUsageCount: true,
         usageCount: true,
+        eventType: { select: { slug: true } },
       },
     });
   }
@@ -35,6 +42,13 @@ export class PrivateLinksRepository {
         link: link.link,
         expiresAt: link.expiresAt,
         ...(typeof link.maxUsageCount === "number" ? { maxUsageCount: link.maxUsageCount } : {}),
+      },
+      select: {
+        link: true,
+        expiresAt: true,
+        maxUsageCount: true,
+        usageCount: true,
+        eventType: { select: { slug: true } },
       },
     });
   }
