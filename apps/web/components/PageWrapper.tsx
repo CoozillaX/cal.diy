@@ -9,23 +9,20 @@
 
 "use client";
 
-import { DefaultSeo } from "next-seo";
-import { Inter } from "next/font/google";
-import localFont from "next/font/local";
+import { Inter, Work_Sans } from "next/font/google";
 import Head from "next/head";
 import Script from "next/script";
+import { DefaultSeo } from "next-seo";
 
 import "@calcom/embed-core/src/embed-iframe";
 import { IS_CALCOM, WEBAPP_URL } from "@calcom/lib/constants";
 import { getCalcomUrl } from "@calcom/lib/getCalcomUrl";
 import { buildCanonical } from "@calcom/lib/next-seo.config";
 import { IconSprites } from "@calcom/ui/components/icon";
-
+import { GoogleTagManagerComponent } from "@components/GTM";
 import type { AppProps } from "@lib/app-providers";
 import AppProviders from "@lib/app-providers";
 import { seoConfig } from "@lib/config/next-seo.config";
-
-import { GoogleTagManagerComponent } from "@components/GTM";
 
 export interface CalPageWrapper {
   (props?: AppProps): JSX.Element;
@@ -33,12 +30,12 @@ export interface CalPageWrapper {
 }
 
 const interFont = Inter({ subsets: ["latin"], variable: "--font-sans", preload: true, display: "swap" });
-const calFont = localFont({
-  src: "../fonts/CalSans-SemiBold.woff2",
+// Fantasy Caravan's headline font - see apps/web/app/layout.tsx for the App Router equivalent
+const calFont = Work_Sans({
+  subsets: ["latin"],
   variable: "--font-cal",
   preload: true,
   display: "swap",
-  weight: "600",
 });
 
 function PageWrapper(props: AppProps) {
